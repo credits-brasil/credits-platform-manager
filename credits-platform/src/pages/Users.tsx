@@ -45,6 +45,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { listCompanies } from "@/lib/company";
 import { formatCpf } from "@/utils/formatCPF";
+import { formatCnpj } from "@/utils/formatCNPJ";
 import { formatPhone } from "@/utils/formatPhone";
 import { validateCPF } from "@/utils/validateCPF";
 
@@ -100,7 +101,7 @@ type OperatorFormState = {
 const generateRandomUserCode = () => String(Math.floor(10000000 + Math.random() * 90000000));
 
 const EMPTY_FORM_STATE: OperatorFormState = {
-  user: generateRandomUserCode(),
+  user: "",
   name: "",
   cpf: "",
   email: "",
@@ -363,6 +364,33 @@ export default function UsersPage() {
     enabled: !!sessionUser,
   });
 
+  const normalizedOperators = useMemo<CompanyOperator[]>(
+    () =>
+      (operators as any[]).map((operator) => ({
+        ...operator,
+        companyId: operator.companyId ?? operator.company?.id ?? "",
+        operatorId: operator.userId ?? operator.operatorId ?? operator.user?.id ?? operator.operator?.id ?? "",
+        operator: operator.user ?? operator.operator ?? {
+          id: "",
+          user: "",
+          name: "-",
+          cpf: "-",
+          email: "-",
+          phone: "-",
+          createdAt: "",
+          updatedAt: "",
+        },
+        company:
+          operator.company ?? {
+            id: "",
+            name: "-",
+            cnpj: "-",
+            status: "ACTIVE",
+          },
+      })),
+    [operators],
+  );
+
   const {
     data: companyOptions = [],
   } = useQuery({
@@ -431,7 +459,9 @@ export default function UsersPage() {
   };
 
   const filteredOperators = useMemo(() => {
-    const visibleOperators = operators.filter((operator) => operator.operator.id !== loggedOperatorId);
+    const visibleOperators = (normalizedOperators ?? []).filter(
+      (operator: any) => (operator?.operator?.id ?? "") !== loggedOperatorId,
+    );
     const term = search.trim().toLowerCase();
 
     if (!term) {
@@ -440,21 +470,18 @@ export default function UsersPage() {
 
     return visibleOperators.filter((operator) => {
       const values = [
-        operator.operator.name,
-        operator.operator.cpf,
-        operator.operator.email,
-        operator.company.name,
+        operator?.operator?.name ?? "",
+        operator?.operator?.cpf ?? "",
+        operator?.operator?.email ?? "",
+        operator?.company?.name ?? "",
       ];
       return values.some((value) => value.toLowerCase().includes(term));
     });
-  }, [operators, loggedOperatorId, search]);
+  }, [normalizedOperators, loggedOperatorId, search]);
 
   const openCreateDrawer = () => {
     setEditingOperator(null);
-    setFormState({
-      ...EMPTY_FORM_STATE,
-      user: generateRandomUserCode(),
-    });
+    setFormState({ ...EMPTY_FORM_STATE });
     setSelectedCompanyIds(selectedCompany ? [selectedCompany.id] : []);
     setIsDrawerOpen(true);
   };
@@ -467,10 +494,10 @@ export default function UsersPage() {
 
     setEditingOperator(operator);
     setFormState({
-      user: operator.operator.user ?? generateRandomUserCode(),
+      user: operator.operator.user ?? "",
       name: operator.operator.name,
       cpf: operator.operator.cpf,
-      email: operator.operator.email,
+      email: operator.operator.email ?? "",
       phone: operator.operator.phone,
       role: operator.role,
     });
@@ -491,20 +518,36 @@ export default function UsersPage() {
       return;
     }
 
-    const userCode = formState.user.replace(/\D/g, "").slice(0, 8);
-    if (!/^\d{8}$/.test(userCode)) {
+    const userCode = formState.user.trim().replace(/\D/g, "").slice(0, 8);
+    const emailValue = formState.email.trim().toLowerCase();
+    const hasUser = Boolean(userCode);
+    const hasEmail = Boolean(emailValue);
+
+    if (hasUser === hasEmail) {
+      toast({
+        title: "Informe apenas um identificador: usuário ou e-mail.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (hasUser && !/^\d{8}$/.test(userCode)) {
       toast({ title: "Usuário deve conter 8 dígitos numéricos.", variant: "destructive" });
       return;
     }
 
-    const payload = {
-      user: userCode,
+    const payload: Record<string, string> = {
       name: formState.name.trim(),
       cpf: cleanCpf,
-      email: formState.email.trim().toLowerCase(),
       phone: formState.phone.trim(),
       role: formState.role,
     };
+
+    if (hasUser) {
+      payload.user = userCode;
+    } else {
+      payload.email = emailValue;
+    }
 
     if (editingOperator) {
       if (!selectedCompany) {
@@ -584,49 +627,65 @@ export default function UsersPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredOperators.map((operator) => (
-                  <TableRow key={operator.id}>
-                    <TableCell className="font-medium text-gray-800">{operator.operator.name}</TableCell>
-                    <TableCell>{operator.company?.name ?? "-"}</TableCell>
-                    <TableCell>{operator.company?.cnpj ?? "-"}</TableCell>
-                    <TableCell>{operator.operator.cpf}</TableCell>
-                    <TableCell>{operator.operator.email}</TableCell>
-                    <TableCell>{ROLE_LABEL[operator.role]}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <Badge variant={OPERATOR_STATUS_VARIANT[operator.status]}>
-                          {OPERATOR_STATUS_LABEL[operator.status]}
-                        </Badge>
-                        <Switch
-                          checked={operator.status === "ACTIVE"}
-                          onCheckedChange={() => toggleOperatorStatus(operator)}
-                          disabled={!canManageCompany(operator.companyId) || updateMutation.isPending}
-                          aria-label={`Alternar status do operador ${operator.operator.name}`}
-                        />
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => openEditDrawer(operator)}
-                          disabled={!canManageCompany(operator.companyId)}
-                        >
-                          <Pencil size={15} />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setDeleteTarget(operator)}
-                          disabled={!canManageCompany(operator.companyId)}
-                        >
-                          <Trash2 size={15} />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {filteredOperators.map((operator) => {
+                  const itemOperator = operator?.operator ?? {
+                    id: "",
+                    name: "-",
+                    cpf: "-",
+                    email: "-",
+                    phone: "-",
+                  };
+                  const itemCompany = operator?.company ?? {
+                    id: "",
+                    name: "-",
+                    cnpj: "-",
+                    status: "ACTIVE" as const,
+                  };
+
+                  return (
+                    <TableRow key={operator.id}>
+                      <TableCell className="font-medium text-gray-800">{itemOperator.name}</TableCell>
+                      <TableCell>{itemCompany.name}</TableCell>
+                      <TableCell>{formatCnpj(itemCompany.cnpj)}</TableCell>
+                      <TableCell>{formatCpf(itemOperator.cpf, "display")}</TableCell>
+                      <TableCell>{itemOperator.email}</TableCell>
+                      <TableCell>{ROLE_LABEL[operator.role] ?? "-"}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <Badge variant={OPERATOR_STATUS_VARIANT[operator.status] ?? "secondary"}>
+                            {OPERATOR_STATUS_LABEL[operator.status] ?? "-"}
+                          </Badge>
+                          <Switch
+                            checked={operator.status === "ACTIVE"}
+                            onCheckedChange={() => toggleOperatorStatus(operator)}
+                            disabled={!canManageCompany(operator.companyId) || updateMutation.isPending}
+                            aria-label={`Alternar status do operador ${itemOperator.name}`}
+                          />
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => openEditDrawer(operator)}
+                            disabled={!canManageCompany(operator.companyId)}
+                          >
+                            <Pencil size={15} />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setDeleteTarget(operator)}
+                            disabled={!canManageCompany(operator.companyId)}
+                          >
+                            <Trash2 size={15} />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           )}
@@ -639,15 +698,34 @@ export default function UsersPage() {
             <DrawerTitle>{editingOperator ? "Editar usuário" : "Novo usuário"}</DrawerTitle>
           </DrawerHeader>
 
-          <form onSubmit={submitForm} className="space-y-4 px-4 pb-4">
-            <div className="space-y-2">
+          <form onSubmit={submitForm} className="w-full space-y-4 px-4 pb-4">
+            <div className="w-full space-y-2">
               <Label htmlFor="operator-user">Usuário</Label>
-              <InputComponent
-                id="operator-user"
-                value={formState.user}
-                readOnly
-                className="bg-muted/30"
-              />
+              <div className="flex w-full min-w-0 items-center gap-2">
+                <div className="min-w-0 flex-1">
+                  <InputComponent
+                    id="operator-user"
+                    value={formState.user}
+                    readOnly
+                    placeholder="8 dígitos"
+                    className="w-full min-w-0 bg-muted/30"
+                  />
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="shrink-0 whitespace-nowrap"
+                  onClick={() =>
+                    setFormState((prev) => ({
+                      ...prev,
+                      user: generateRandomUserCode(),
+                      email: "",
+                    }))
+                  }
+                >
+                  Gerar usuário
+                </Button>
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -676,8 +754,16 @@ export default function UsersPage() {
                 id="operator-email"
                 type="email"
                 value={formState.email}
-                onChange={(event) => setFormState((prev) => ({ ...prev, email: event.target.value }))}
-                required
+                disabled={Boolean(formState.user)}
+                onChange={(event) => {
+                  const nextEmail = event.target.value;
+                  setFormState((prev) => ({
+                    ...prev,
+                    email: nextEmail,
+                    user: nextEmail ? "" : prev.user,
+                  }));
+                }}
+                placeholder={formState.user ? "Desabilitado quando há usuário" : "Opcional se o usuário for informado"}
               />
             </div>
 
