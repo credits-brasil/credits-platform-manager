@@ -46,7 +46,6 @@ import { validateCNPJ } from "@/utils/validateCNPJ";
 import {
   Company,
   CompanyCreatePayload,
-  CompanyPeriod,
   CompanyStatus,
   createCompany,
   deleteCompany,
@@ -76,17 +75,18 @@ const EMPTY_FORM_STATE = {
   name: "",
   operator_SPC: "",
   operator_SPC_password: "",
-  limit_consults: "1000",
   daily_limit_consults: "100",
   monthly_limit_consults: "1000",
-  period_limit_consults: "MONTHLY" as CompanyPeriod,
   status: "ACTIVE" as "ACTIVE" | "INACTIVE",
 };
 
 function formatDate(value: string | null) {
   if (!value) return "-";
 
-  return new Date(value).toLocaleDateString("pt-BR");
+  return new Date(value).toLocaleString("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+  });
 }
 
 export default function CompaniesPage() {
@@ -207,10 +207,8 @@ export default function CompaniesPage() {
       name: company.name,
       operator_SPC: company.operator_SPC ?? "",
       operator_SPC_password: "",
-      limit_consults: String(company.limit_consults),
-      daily_limit_consults: company.period_limit_consults === "DAILY" ? String(company.limit_consults) : "100",
-      monthly_limit_consults: company.period_limit_consults === "MONTHLY" ? String(company.limit_consults) : "1000",
-      period_limit_consults: company.period_limit_consults,
+      daily_limit_consults: String(company.limit_consults_daily),
+      monthly_limit_consults: String(company.limit_consults_monthly),
       status: company.status === "INACTIVE" ? "INACTIVE" : "ACTIVE",
     });
     setIsFormOpen(true);
@@ -227,14 +225,13 @@ export default function CompaniesPage() {
 
     const dailyLimit = Number(formState.daily_limit_consults) || 0;
     const monthlyLimit = Number(formState.monthly_limit_consults) || 0;
-    const period = dailyLimit > 0 && monthlyLimit === 0 ? "DAILY" : "MONTHLY";
 
     const payload: CompanyCreatePayload & { status?: "ACTIVE" | "INACTIVE" } = {
       cnpj: cleanCnpj,
       name: formState.name.trim(),
       operator_SPC: formState.operator_SPC.trim() || undefined,
-      limit_consults: period === "DAILY" ? dailyLimit : monthlyLimit,
-      period_limit_consults: period,
+      limit_consults_daily: dailyLimit,
+      limit_consults_monthly: monthlyLimit,
       ...(formState.operator_SPC_password.trim()
         ? { operator_SPC_password: formState.operator_SPC_password.trim() }
         : {}),
@@ -329,8 +326,8 @@ export default function CompaniesPage() {
                       {company.name}
                     </TableCell>
                     <TableCell>{company.cnpj}</TableCell>
-                    <TableCell>{company.limit_consults}</TableCell>
-                    <TableCell>{company.period_limit_consults === "DAILY" ? company.limit_consults : "-"}</TableCell>
+                    <TableCell>{company.limit_consults_monthly}</TableCell>
+                    <TableCell>{company.limit_consults_daily}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Badge variant={STATUS_BADGE_VARIANT[company.status]}>
@@ -384,7 +381,7 @@ export default function CompaniesPage() {
 
           <form className="space-y-4" onSubmit={handleSubmit}>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 col-span-2">
                 <Label htmlFor="cnpj">CNPJ</Label>
                 <InputComponent
                   id="cnpj"
@@ -395,7 +392,10 @@ export default function CompaniesPage() {
                       cnpj: formatCnpj(e.target.value, "input"),
                     }))
                   }
+                  placeholder="00.000.000/0000-00"
+                  autoComplete="on"
                   required
+                  className="w-full"
                 />
               </div>
             </div>
@@ -408,7 +408,10 @@ export default function CompaniesPage() {
                 onChange={(e) =>
                   setFormState((prev) => ({ ...prev, name: e.target.value }))
                 }
+                placeholder="Nome da empresa"
+                autoComplete="organization"
                 required
+                className="w-full"
               />
             </div>
 
@@ -421,6 +424,9 @@ export default function CompaniesPage() {
                   onChange={(e) =>
                     setFormState((prev) => ({ ...prev, operator_SPC: e.target.value }))
                   }
+                  placeholder="Usuário SPC"
+                  autoComplete="username"
+                  className="w-full"
                 />
               </div>
 
@@ -431,13 +437,15 @@ export default function CompaniesPage() {
                     id="operator_SPC_password"
                     type={showSpcPassword ? "text" : "password"}
                     value={formState.operator_SPC_password}
-                    className="pr-10"
+                    className="w-full pr-10"
                     onChange={(e) =>
                       setFormState((prev) => ({
                         ...prev,
                         operator_SPC_password: e.target.value,
                       }))
                     }
+                    placeholder="Senha do Web Service"
+                    autoComplete="current-password"
                   />
                   <button
                     type="button"
@@ -463,9 +471,10 @@ export default function CompaniesPage() {
                     setFormState((prev) => ({
                       ...prev,
                       daily_limit_consults: e.target.value,
-                      period_limit_consults: "DAILY",
                     }))
                   }
+                  placeholder="100"
+                  className="w-full"
                 />
               </div>
 
@@ -480,33 +489,12 @@ export default function CompaniesPage() {
                     setFormState((prev) => ({
                       ...prev,
                       monthly_limit_consults: e.target.value,
-                      period_limit_consults: "MONTHLY",
                     }))
                   }
+                  placeholder="1000"
+                  className="w-full"
                 />
               </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              {editingCompany && (
-                <div className="space-y-1.5">
-                  <Label>Status</Label>
-                  <Select
-                    value={formState.status}
-                    onValueChange={(value: "ACTIVE" | "INACTIVE") =>
-                      setFormState((prev) => ({ ...prev, status: value }))
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ACTIVE">Ativa</SelectItem>
-                      <SelectItem value="INACTIVE">Inativa</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
             </div>
 
             <SheetFooter>

@@ -7,8 +7,8 @@ import Layout from "@/components/layout/Layout";
 import HomePage from "@/pages/Home";
 import LoginPage from "@/pages/Login";
 import CompaniesPage from "@/pages/Companies";
-import OperatorsPage from "@/pages/Operators";
 import UsersPage from "@/pages/Users";
+import AdminsPage from "@/pages/Admins";
 import NotFound from "@/pages/not-found";
 import { loginRequest } from "@/lib/auth";
 
@@ -75,8 +75,8 @@ function Router({
         <Route path="/" component={HomeRedirect} />
         <Route path="/home" component={HomePage} />
         <Route path="/configuracoes/empresas" component={CompaniesPage} />
-        <Route path="/configuracoes/operadores" component={OperatorsPage} />
-        <Route path="/configuracoes/usuarios" component={UsersPage} />
+        <Route path="/configuracoes/users" component={UsersPage} />
+        <Route path="/configuracoes/admins" component={AdminsPage} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

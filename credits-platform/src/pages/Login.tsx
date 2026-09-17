@@ -30,12 +30,18 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
   const [keepConnected, setKeepConnected] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [recoveryStep, setRecoveryStep] = useState<"login" | "email" | "otp" | "password">("login");
+  const [recoveryStep, setRecoveryStep] = useState<
+    "login" | "email" | "otp" | "password" | "firstAccess"
+  >("login");
   const [recoveryEmail, setRecoveryEmail] = useState("");
   const [otp, setOtp] = useState("");
   const [resetToken, setResetToken] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [passwordConfirmation, setPasswordConfirmation] = useState("");
+  const [firstAccessCurrentPassword, setFirstAccessCurrentPassword] = useState("");
+  const [firstAccessNewPassword, setFirstAccessNewPassword] = useState("");
+  const [firstAccessConfirmation, setFirstAccessConfirmation] = useState("");
+  const [showFirstAccessPassword, setShowFirstAccessPassword] = useState(false);
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -46,8 +52,17 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
     setIsSubmitting(false);
 
     if (errorMessage) {
-      setError(errorMessage);
+      if (errorMessage.toLowerCase().includes("primeiro acesso")) {
+        setRecoveryEmail(username.trim());
+        setFirstAccessCurrentPassword(password);
+        setFirstAccessNewPassword("");
+        setFirstAccessConfirmation("");
+        setRecoveryStep("firstAccess");
+        setError(null);
+        return;
+      }
 
+      setError(errorMessage);
       return;
     }
 
@@ -55,20 +70,90 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
     setLocation("/home");
   };
 
+  const handleFirstAccessSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError(null);
+
+    const email = recoveryEmail.trim() || username.trim();
+
+    if (!email) {
+      setError("Informe seu e-mail para continuar.");
+      return;
+    }
+
+    if (firstAccessCurrentPassword.length < 1) {
+      setError("Informe a senha temporária recebida no cadastro.");
+      return;
+    }
+
+    if (firstAccessNewPassword.length < 8) {
+      setError("A nova senha deve ter pelo menos 8 caracteres.");
+      return;
+    }
+
+    if (firstAccessNewPassword !== firstAccessConfirmation) {
+      setError("As senhas não conferem.");
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${API_URL}/api/auth/admin/first-access/change-password`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email,
+            currentPassword: firstAccessCurrentPassword,
+            newPassword: firstAccessNewPassword,
+          }),
+        },
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.message ?? "Não foi possível alterar sua senha.");
+        return;
+      }
+
+      const loginSucceeded = await onLogin(email, firstAccessNewPassword);
+      if (loginSucceeded) {
+        setError(loginSucceeded);
+        return;
+      }
+
+      setUsername(email);
+      setPassword("");
+      setFirstAccessCurrentPassword("");
+      setFirstAccessNewPassword("");
+      setFirstAccessConfirmation("");
+      setRecoveryStep("login");
+      setLocation("/home");
+    } catch {
+      setError("Não foi possível alterar sua senha. Tente novamente.");
+    }
+  };
+
   const handleRecoveryRequest = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
 
     try {
-      const response = await fetch(`${API_URL}/api/auth/admin/forgot-password`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: recoveryEmail.trim() }),
-      });
+      const response = await fetch(
+        `${API_URL}/api/auth/admin/forgot-password`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: recoveryEmail.trim() }),
+        },
+      );
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.message ?? "Não foi possível enviar o código. Tente novamente.");
+        setError(
+          data.message ?? "Não foi possível enviar o código. Tente novamente.",
+        );
         return;
       }
 
@@ -89,11 +174,14 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
     setError(null);
 
     try {
-      const response = await fetch(`${API_URL}/api/auth/admin/verify-reset-code`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: recoveryEmail.trim(), code }),
-      });
+      const response = await fetch(
+        `${API_URL}/api/auth/admin/verify-reset-code`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: recoveryEmail.trim(), code }),
+        },
+      );
 
       const data = await response.json();
 
@@ -104,13 +192,18 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
           setResetToken("");
         }
 
-        setError(data.message ?? "Código inválido. Confira os 6 dígitos e tente novamente.");
+        setError(
+          data.message ??
+            "Código inválido. Confira os 6 dígitos e tente novamente.",
+        );
         setIsVerifyingOtp(false);
         return;
       }
 
       if (typeof data.resetToken !== "string") {
-        setError("Não foi possível iniciar a redefinição. Solicite um novo código.");
+        setError(
+          "Não foi possível iniciar a redefinição. Solicite um novo código.",
+        );
         setIsVerifyingOtp(false);
         return;
       }
@@ -312,7 +405,9 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                     ? "Recupere sua senha"
                     : recoveryStep === "otp"
                       ? "Valide seu código"
-                      : "Crie uma nova senha"}
+                      : recoveryStep === "firstAccess"
+                        ? "Primeiro acesso"
+                        : "Crie uma nova senha"}
               </h2>
 
               <p className="text-slate-500">
@@ -322,7 +417,9 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                     ? "Informe seu e-mail para receber um código de acesso."
                     : recoveryStep === "otp"
                       ? `Digite o código de 6 dígitos enviado para ${recoveryEmail}.`
-                      : "Defina uma senha nova para acessar sua conta."}
+                      : recoveryStep === "firstAccess"
+                        ? "Você precisa definir uma nova senha antes de continuar."
+                        : "Defina uma senha nova para acessar sua conta."}
               </p>
             </motion.div>
 
@@ -332,130 +429,238 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
               transition={{ delay: 0.4, duration: 0.5 }}
               className="bg-white rounded-2xl shadow-xl shadow-slate-200/50 p-6 md:p-8 border border-slate-100"
             >
-              {recoveryStep === "login" ? (
-              <form className="space-y-5" onSubmit={handleSubmit}>
-                <div className="space-y-1.5">
-                  <label
-                    htmlFor="username"
-                    className="text-sm font-semibold text-[#0A1F5C] block"
-                  >
-                    E-mail corporativo
-                  </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                      <Mail className="h-5 w-5" />
-                    </div>
-                    <input
-                      id="username"
-                      type="email"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      className="block w-full pl-10 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#F5821F] focus:border-transparent transition-shadow"
-                      placeholder="seuemail@empresa.com.br"
-                      autoComplete="email"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label
-                    htmlFor="password"
-                    className="text-sm font-semibold text-[#0A1F5C] block"
-                  >
-                    Senha
-                  </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                      <Lock className="h-5 w-5" />
-                    </div>
-
-                    <input
-                      id="password"
-                      type={showPassword ? "text" : "password"}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="block w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#F5821F] focus:border-transparent transition-shadow"
-                      placeholder="Digite sua senha"
-                      autoComplete="current-password"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 transition-colors"
-                    >
-                      {showPassword ? (
-                        <EyeOff className="h-5 w-5" />
-                      ) : (
-                        <Eye className="h-5 w-5" />
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-                {error && <p className="text-sm text-red-500">{error}</p>}
-
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
-                  <div className="flex items-center gap-2">
-                    <CheckboxPrimitive.Root
-                      id="remember"
-                      checked={keepConnected}
-                      onCheckedChange={(checked) =>
-                        setKeepConnected(checked === true)
-                      }
-                      className="flex h-5 w-5 items-center justify-center rounded border border-slate-300 bg-white shadow-sm data-[state=checked]:bg-[#0A1F5C] data-[state=checked]:border-[#0A1F5C] transition-colors hover:border-[#0A1F5C] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#F5821F]"
-                    >
-                      <CheckboxPrimitive.Indicator className="text-white">
-                        <svg
-                          width="15"
-                          height="15"
-                          viewBox="0 0 15 15"
-                          fill="none"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path
-                            d="M11.4669 3.72684C11.7558 3.91574 11.8369 4.30308 11.648 4.59198L7.39799 11.092C7.29783 11.2452 7.13556 11.3467 6.95402 11.3699C6.77247 11.3931 6.58989 11.3355 6.45446 11.2124L3.70446 8.71241C3.44905 8.48022 3.43023 8.08494 3.66242 7.82953C3.89461 7.57412 4.28989 7.55529 4.5453 7.78749L6.75292 9.79441L10.6018 3.90792C10.7907 3.61902 11.178 3.53795 11.4669 3.72684Z"
-                            fill="currentColor"
-                            fillRule="evenodd"
-                            clipRule="evenodd"
-                          ></path>
-                        </svg>
-                      </CheckboxPrimitive.Indicator>
-                    </CheckboxPrimitive.Root>
+              {recoveryStep === "firstAccess" ? (
+                <form className="space-y-5" onSubmit={handleFirstAccessSubmit}>
+                  <div className="space-y-1.5">
                     <label
-                      htmlFor="remember"
-                      className="text-sm font-medium text-slate-600 cursor-pointer select-none"
+                      htmlFor="first-access-email"
+                      className="text-sm font-semibold text-[#0A1F5C] block"
                     >
-                      Manter conectado
+                      E-mail
                     </label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                      <input
+                        id="first-access-email"
+                        type="email"
+                        value={recoveryEmail || username}
+                        onChange={(event) => setRecoveryEmail(event.target.value)}
+                        className="block w-full rounded-lg border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-3 text-sm placeholder:text-slate-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#F5821F]"
+                        placeholder="seuemail@empresa.com.br"
+                        required
+                      />
+                    </div>
                   </div>
-                  <a
-                    href="#"
-                    onClick={(event) => {
-                      event.preventDefault();
-                      setError(null);
-                      setRecoveryStep("email");
-                    }}
-                    className="text-sm font-semibold text-[#0A1F5C] hover:text-[#F5821F] transition-colors"
-                  >
-                    Esqueci minha senha
-                  </a>
-                </div>
 
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="w-full mt-4 bg-[#F5821F] hover:bg-[#F5821F]/90 text-white font-bold py-3 px-4 rounded-lg shadow-lg shadow-[#F5821F]/20 transition-all hover:-translate-y-0.5 hover:shadow-xl hover:shadow-[#F5821F]/30 active:translate-y-0 active:shadow-md flex items-center justify-center gap-2 group disabled:opacity-60 disabled:pointer-events-none cursor-pointer"
-                >
-                  {isSubmitting ? "Entrando..." : "Acessar plataforma"}
-                  <span className="transform transition-transform group-hover:translate-x-1">
-                    →
-                  </span>
-                </button>
-              </form>
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="first-access-current-password"
+                      className="text-sm font-semibold text-[#0A1F5C] block"
+                    >
+                      Senha temporária
+                    </label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                      <input
+                        id="first-access-current-password"
+                        type={showFirstAccessPassword ? "text" : "password"}
+                        value={firstAccessCurrentPassword}
+                        onChange={(event) => setFirstAccessCurrentPassword(event.target.value)}
+                        className="block w-full rounded-lg border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-10 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#F5821F]"
+                        placeholder="Digite a senha temporária"
+                        autoComplete="current-password"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowFirstAccessPassword((prev) => !prev)}
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 transition-colors"
+                      >
+                        {showFirstAccessPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="first-access-new-password"
+                      className="text-sm font-semibold text-[#0A1F5C] block"
+                    >
+                      Nova senha
+                    </label>
+                    <div className="relative">
+                      <KeyRound className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                      <input
+                        id="first-access-new-password"
+                        type="password"
+                        value={firstAccessNewPassword}
+                        onChange={(event) => setFirstAccessNewPassword(event.target.value)}
+                        className="block w-full rounded-lg border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-3 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#F5821F]"
+                        placeholder="Mínimo de 8 caracteres"
+                        autoComplete="new-password"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="first-access-confirmation"
+                      className="text-sm font-semibold text-[#0A1F5C] block"
+                    >
+                      Confirmar nova senha
+                    </label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                      <input
+                        id="first-access-confirmation"
+                        type="password"
+                        value={firstAccessConfirmation}
+                        onChange={(event) => setFirstAccessConfirmation(event.target.value)}
+                        className="block w-full rounded-lg border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-3 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#F5821F]"
+                        placeholder="Digite a senha novamente"
+                        autoComplete="new-password"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  {error && <p className="text-sm text-red-500">{error}</p>}
+
+                  <button
+                    type="submit"
+                    className="w-full rounded-lg bg-[#F5821F] px-4 py-3 font-bold text-white shadow-lg shadow-[#F5821F]/20 transition-all hover:-translate-y-0.5 hover:bg-[#F5821F]/90 cursor-pointer"
+                  >
+                    Salvar nova senha
+                  </button>
+                </form>
+              ) : recoveryStep === "login" ? (
+                <form className="space-y-5" onSubmit={handleSubmit}>
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="username"
+                      className="text-sm font-semibold text-[#0A1F5C] block"
+                    >
+                      E-mail corporativo
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                        <Mail className="h-5 w-5" />
+                      </div>
+                      <input
+                        id="username"
+                        type="email"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        className="block w-full pl-10 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#F5821F] focus:border-transparent transition-shadow"
+                        placeholder="seuemail@empresa.com.br"
+                        autoComplete="email"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="password"
+                      className="text-sm font-semibold text-[#0A1F5C] block"
+                    >
+                      Senha
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                        <Lock className="h-5 w-5" />
+                      </div>
+
+                      <input
+                        id="password"
+                        type={showPassword ? "text" : "password"}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="block w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#F5821F] focus:border-transparent transition-shadow"
+                        placeholder="Digite sua senha"
+                        autoComplete="current-password"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 transition-colors"
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-5 w-5" />
+                        ) : (
+                          <Eye className="h-5 w-5" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {error && <p className="text-sm text-red-500">{error}</p>}
+
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+                    <div className="flex items-center gap-2">
+                      <CheckboxPrimitive.Root
+                        id="remember"
+                        checked={keepConnected}
+                        onCheckedChange={(checked) =>
+                          setKeepConnected(checked === true)
+                        }
+                        className="flex h-5 w-5 items-center justify-center rounded border border-slate-300 bg-white shadow-sm data-[state=checked]:bg-[#0A1F5C] data-[state=checked]:border-[#0A1F5C] transition-colors hover:border-[#0A1F5C] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#F5821F]"
+                      >
+                        <CheckboxPrimitive.Indicator className="text-white">
+                          <svg
+                            width="15"
+                            height="15"
+                            viewBox="0 0 15 15"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              d="M11.4669 3.72684C11.7558 3.91574 11.8369 4.30308 11.648 4.59198L7.39799 11.092C7.29783 11.2452 7.13556 11.3467 6.95402 11.3699C6.77247 11.3931 6.58989 11.3355 6.45446 11.2124L3.70446 8.71241C3.44905 8.48022 3.43023 8.08494 3.66242 7.82953C3.89461 7.57412 4.28989 7.55529 4.5453 7.78749L6.75292 9.79441L10.6018 3.90792C10.7907 3.61902 11.178 3.53795 11.4669 3.72684Z"
+                              fill="currentColor"
+                              fillRule="evenodd"
+                              clipRule="evenodd"
+                            ></path>
+                          </svg>
+                        </CheckboxPrimitive.Indicator>
+                      </CheckboxPrimitive.Root>
+                      <label
+                        htmlFor="remember"
+                        className="text-sm font-medium text-slate-600 cursor-pointer select-none"
+                      >
+                        Manter conectado
+                      </label>
+                    </div>
+                    <a
+                      href="#"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        setError(null);
+                        setRecoveryStep("email");
+                      }}
+                      className="text-sm font-semibold text-[#0A1F5C] hover:text-[#F5821F] transition-colors"
+                    >
+                      Esqueci minha senha
+                    </a>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="w-full mt-4 bg-[#F5821F] hover:bg-[#F5821F]/90 text-white font-bold py-3 px-4 rounded-lg shadow-lg shadow-[#F5821F]/20 transition-all hover:-translate-y-0.5 hover:shadow-xl hover:shadow-[#F5821F]/30 active:translate-y-0 active:shadow-md flex items-center justify-center gap-2 group disabled:opacity-60 disabled:pointer-events-none cursor-pointer"
+                  >
+                    {isSubmitting ? "Entrando..." : "Acessar plataforma"}
+                    <span className="transform transition-transform group-hover:translate-x-1">
+                      →
+                    </span>
+                  </button>
+                </form>
               ) : recoveryStep === "email" ? (
                 <form className="space-y-5" onSubmit={handleRecoveryRequest}>
                   <div className="space-y-1.5">
-                    <label htmlFor="recovery-email" className="text-sm font-semibold text-[#0A1F5C] block">
+                    <label
+                      htmlFor="recovery-email"
+                      className="text-sm font-semibold text-[#0A1F5C] block"
+                    >
                       E-mail cadastrado
                     </label>
                     <div className="relative">
@@ -464,7 +669,9 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                         id="recovery-email"
                         type="email"
                         value={recoveryEmail}
-                        onChange={(event) => setRecoveryEmail(event.target.value)}
+                        onChange={(event) =>
+                          setRecoveryEmail(event.target.value)
+                        }
                         className="block w-full rounded-lg border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-3 text-sm placeholder:text-slate-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#F5821F]"
                         placeholder="seuemail@empresa.com.br"
                         autoComplete="email"
@@ -475,14 +682,26 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
 
                   {error && <p className="text-sm text-red-500">{error}</p>}
 
-                  <button type="submit" className="w-full rounded-lg bg-[#F5821F] px-4 py-3 font-bold text-white shadow-lg shadow-[#F5821F]/20 transition-all hover:-translate-y-0.5 hover:bg-[#F5821F]/90 cursor-pointer">
+                  <button
+                    type="submit"
+                    className="w-full rounded-lg bg-[#F5821F] px-4 py-3 font-bold text-white shadow-lg shadow-[#F5821F]/20 transition-all hover:-translate-y-0.5 hover:bg-[#F5821F]/90 cursor-pointer"
+                  >
                     Enviar código
                   </button>
                 </form>
               ) : recoveryStep === "otp" ? (
-                <form className="space-y-5" onSubmit={(event) => { event.preventDefault(); handleOtpValidation(otp); }}>
+                <form
+                  className="space-y-5"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    handleOtpValidation(otp);
+                  }}
+                >
                   <div className="space-y-1.5">
-                    <label htmlFor="recovery-otp" className="text-sm font-semibold text-[#0A1F5C] block">
+                    <label
+                      htmlFor="recovery-otp"
+                      className="text-sm font-semibold text-[#0A1F5C] block"
+                    >
                       Código de verificação
                     </label>
                     <InputOTP
@@ -497,38 +716,93 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                       containerClassName="justify-center gap-3"
                     >
                       <InputOTPGroup className="gap-2">
-                        {[0, 1, 2].map((index) => <InputOTPSlot key={index} index={index} aria-invalid={Boolean(error)} className="!h-14 !w-12 rounded-xl !border border-slate-200 bg-slate-50 text-xl font-bold text-[#0A1F5C] shadow-sm data-[active=true]:border-[#F5821F] data-[active=true]:ring-4 data-[active=true]:ring-[#F5821F]/15" />)}
+                        {[0, 1, 2].map((index) => (
+                          <InputOTPSlot
+                            key={index}
+                            index={index}
+                            aria-invalid={Boolean(error)}
+                            className="!h-14 !w-12 rounded-xl !border border-slate-200 bg-slate-50 text-xl font-bold text-[#0A1F5C] shadow-sm data-[active=true]:border-[#F5821F] data-[active=true]:ring-4 data-[active=true]:ring-[#F5821F]/15"
+                          />
+                        ))}
                       </InputOTPGroup>
                       <InputOTPSeparator className="text-slate-300" />
                       <InputOTPGroup className="gap-2">
-                        {[3, 4, 5].map((index) => <InputOTPSlot key={index} index={index} aria-invalid={Boolean(error)} className="!h-14 !w-12 rounded-xl !border border-slate-200 bg-slate-50 text-xl font-bold text-[#0A1F5C] shadow-sm data-[active=true]:border-[#F5821F] data-[active=true]:ring-4 data-[active=true]:ring-[#F5821F]/15" />)}
+                        {[3, 4, 5].map((index) => (
+                          <InputOTPSlot
+                            key={index}
+                            index={index}
+                            aria-invalid={Boolean(error)}
+                            className="!h-14 !w-12 rounded-xl !border border-slate-200 bg-slate-50 text-xl font-bold text-[#0A1F5C] shadow-sm data-[active=true]:border-[#F5821F] data-[active=true]:ring-4 data-[active=true]:ring-[#F5821F]/15"
+                          />
+                        ))}
                       </InputOTPGroup>
                     </InputOTP>
                   </div>
 
                   {error && <p className="text-sm text-red-500">{error}</p>}
-                  <button type="submit" disabled={isVerifyingOtp} className="w-full rounded-lg bg-[#F5821F] px-4 py-3 font-bold text-white disabled:opacity-70">
+                  <button
+                    type="submit"
+                    disabled={isVerifyingOtp}
+                    className="w-full rounded-lg bg-[#F5821F] px-4 py-3 font-bold text-white disabled:opacity-70"
+                  >
                     {isVerifyingOtp ? "Validando..." : "Validar código"}
                   </button>
                 </form>
               ) : (
                 <form className="space-y-5" onSubmit={handlePasswordReset}>
                   <div className="space-y-1.5">
-                    <label htmlFor="new-password" className="text-sm font-semibold text-[#0A1F5C] block">Nova senha</label>
+                    <label
+                      htmlFor="new-password"
+                      className="text-sm font-semibold text-[#0A1F5C] block"
+                    >
+                      Nova senha
+                    </label>
                     <div className="relative">
                       <KeyRound className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
-                      <input id="new-password" type="password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} className="block w-full rounded-lg border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-3 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#F5821F]" placeholder="Mínimo de 8 caracteres" autoComplete="new-password" required />
+                      <input
+                        id="new-password"
+                        type="password"
+                        value={newPassword}
+                        onChange={(event) => setNewPassword(event.target.value)}
+                        className="block w-full rounded-lg border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-3 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#F5821F]"
+                        placeholder="Mínimo de 8 caracteres"
+                        autoComplete="new-password"
+                        required
+                      />
                     </div>
                   </div>
                   <div className="space-y-1.5">
-                    <label htmlFor="password-confirmation" className="text-sm font-semibold text-[#0A1F5C] block">Confirmar nova senha</label>
+                    <label
+                      htmlFor="password-confirmation"
+                      className="text-sm font-semibold text-[#0A1F5C] block"
+                    >
+                      Confirmar nova senha
+                    </label>
                     <div className="relative">
                       <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
-                      <input id="password-confirmation" type="password" value={passwordConfirmation} onChange={(event) => setPasswordConfirmation(event.target.value)} className="block w-full rounded-lg border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-3 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#F5821F]" placeholder="Digite a senha novamente" autoComplete="new-password" required />
+                      <input
+                        id="password-confirmation"
+                        type="password"
+                        value={passwordConfirmation}
+                        onChange={(event) =>
+                          setPasswordConfirmation(event.target.value)
+                        }
+                        className="block w-full rounded-lg border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-3 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#F5821F]"
+                        placeholder="Digite a senha novamente"
+                        autoComplete="new-password"
+                        required
+                      />
                     </div>
                   </div>
+
                   {error && <p className="text-sm text-red-500">{error}</p>}
-                  <button type="submit" className="w-full rounded-lg bg-[#F5821F] px-4 py-3 font-bold text-white">Salvar nova senha</button>
+
+                  <button
+                    type="submit"
+                    className="w-full rounded-lg bg-[#F5821F] px-4 py-3 font-bold text-white cursor-pointer"
+                  >
+                    Salvar nova senha
+                  </button>
                 </form>
               )}
             </motion.div>

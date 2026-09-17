@@ -1,5 +1,4 @@
 export type CompanyStatus = "ACTIVE" | "INACTIVE" | "DELETED";
-export type CompanyPeriod = "DAILY" | "WEEKLY" | "MONTHLY";
 
 export interface Company {
   id: string;
@@ -7,11 +6,8 @@ export interface Company {
   name: string;
   operator_SPC: string | null;
   operator_SPC_password: string | null;
-  limit_consults: number;
-  period_limit_consults: CompanyPeriod;
-  tasting_product_quantity: number;
-  tasting_start_date: string | null;
-  tasting_end_date: string | null;
+  limit_consults_daily: number;
+  limit_consults_monthly: number;
   status: CompanyStatus;
   createdAt: string;
   updatedAt: string;
@@ -22,11 +18,8 @@ export interface CompanyCreatePayload {
   name: string;
   operator_SPC?: string;
   operator_SPC_password?: string;
-  limit_consults?: number;
-  period_limit_consults?: CompanyPeriod;
-  tasting_product_quantity?: number;
-  tasting_start_date?: string;
-  tasting_end_date?: string;
+  limit_consults_daily?: number;
+  limit_consults_monthly?: number;
 }
 
 export type CompanyUpdatePayload = Partial<CompanyCreatePayload> & {
