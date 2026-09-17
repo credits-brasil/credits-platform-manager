@@ -6,7 +6,7 @@ export interface Admin {
   cpf: string;
   email: string;
   status: AdminStatus;
-  mustChangePassword: boolean;
+  firstAccess: boolean;
   createdAt: string;
   updatedAt: string;
 }

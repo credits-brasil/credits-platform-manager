@@ -52,7 +52,7 @@ import { validateCPF } from "@/utils/validateCPF";
 const API_URL = import.meta.env.VITE_API_URL;
 
 type OperatorRole = "ADMIN" | "OPERATOR";
-type OperatorCompanyStatus = "ACTIVE" | "INACTIVE";
+type OperatorCompanyStatus = "ACTIVE" | "INACTIVE" | "DELETED";
 
 type CompanyRelation = {
   id: string;
@@ -78,6 +78,7 @@ type CompanyOperator = {
     email: string;
     phone: string;
     password?: string;
+    firstAccess?: boolean;
     createdAt: string;
     updatedAt: string;
   };
@@ -87,6 +88,31 @@ type CompanyOperator = {
     cnpj: string;
     status: "ACTIVE" | "INACTIVE" | "DELETED";
   };
+};
+
+type UserListItem = {
+  id: string;
+  user?: string | null;
+  name: string;
+  cpf: string;
+  email?: string | null;
+  phone: string;
+  firstAccess?: boolean;
+  createdAt: string;
+  updatedAt: string;
+  companies: Array<{
+    id: string;
+    role: OperatorRole;
+    status: OperatorCompanyStatus;
+    createdAt: string;
+    updatedAt: string;
+    company: {
+      id: string;
+      name: string;
+      cnpj: string;
+      status: "ACTIVE" | "INACTIVE" | "DELETED";
+    };
+  }>;
 };
 
 type OperatorFormState = {
@@ -109,6 +135,11 @@ const EMPTY_FORM_STATE: OperatorFormState = {
   role: "OPERATOR",
 };
 
+const normalizeOperatorRole = (role?: string): OperatorRole => {
+  if (role === "ADMIN") return "ADMIN";
+  return "OPERATOR";
+};
+
 const ROLE_LABEL: Record<OperatorRole, string> = {
   ADMIN: "Administrador",
   OPERATOR: "Operador",
@@ -116,12 +147,14 @@ const ROLE_LABEL: Record<OperatorRole, string> = {
 
 const OPERATOR_STATUS_LABEL: Record<OperatorCompanyStatus, string> = {
   ACTIVE: "Ativo",
-  INACTIVE: "Inativo",
+  INACTIVE: "Excluído",
+  DELETED: "Excluído",
 };
 
 const OPERATOR_STATUS_VARIANT: Record<OperatorCompanyStatus, "default" | "secondary"> = {
   ACTIVE: "default",
   INACTIVE: "secondary",
+  DELETED: "secondary",
 };
 
 async function listCompanyOperators(companyId: string): Promise<CompanyOperator[]> {
@@ -136,18 +169,46 @@ async function listCompanyOperators(companyId: string): Promise<CompanyOperator[
   return payload.users ?? [];
 }
 
-async function listAllCompanyOperators(): Promise<CompanyOperator[]> {
-  const companies = await listCompanies();
+async function listAllUsers(): Promise<UserListItem[]> {
+  const response = await fetch(`${API_URL}/api/users`);
 
-  if (!companies.length) {
-    return [];
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(payload?.message || "Não foi possível carregar os usuários.");
   }
 
-  const allOperators = await Promise.all(
-    companies.map(async (company) => listCompanyOperators(company.id)),
-  );
+  const payload = await response.json();
+  return payload.users ?? [];
+}
 
-  return allOperators.flat();
+function flattenUserCompanies(users: UserListItem[]): CompanyOperator[] {
+  return users.flatMap((user) => {
+    if (!user.companies?.length) {
+      return [];
+    }
+
+    return user.companies.map((companyLink) => ({
+      id: companyLink.id,
+      companyId: companyLink.company.id,
+      operatorId: user.id,
+      role: normalizeOperatorRole(companyLink.role),
+      status: companyLink.status ?? "ACTIVE",
+      createdAt: companyLink.createdAt ?? "",
+      updatedAt: companyLink.updatedAt ?? "",
+      operator: {
+        id: user.id,
+        user: user.user ?? "",
+        name: user.name,
+        cpf: user.cpf,
+        email: user.email ?? "",
+        phone: user.phone,
+        firstAccess: user.firstAccess ?? true,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      },
+      company: companyLink.company,
+    }));
+  });
 }
 
 async function createCompanyOperator(companyId: string, payload: Record<string, string>) {
@@ -348,19 +409,29 @@ export default function UsersPage() {
   }, [selectedCompany]);
 
   const loggedOperatorId = sessionUser?.id ?? null;
+  const hasCompanyAccessList = Boolean(sessionUser?.companies?.length);
   const selectedCompanyRole =
-    sessionUser?.companies?.find((company) => company.id === selectedCompany?.id)?.role ?? "OPERATOR";
+    sessionUser?.companies?.find((company) => company.id === selectedCompany?.id)?.role ??
+    (hasCompanyAccessList ? "OPERATOR" : "ADMIN");
   const isAdminForSelectedCompany = selectedCompanyRole === "ADMIN";
-  const canManageCompany = (companyId: string) =>
-    sessionUser?.companies?.some((company) => company.id === companyId && company.role === "ADMIN") ?? false;
+  const canManageCompany = (companyId: string) => {
+    if (!sessionUser?.companies || !sessionUser.companies.length) {
+      return true;
+    }
+
+    return sessionUser.companies.some((company) => company.id === companyId && company.role === "ADMIN");
+  };
 
   const {
     data: operators = [],
     isLoading,
     isError,
   } = useQuery({
-    queryKey: ["all-company-operators"],
-    queryFn: listAllCompanyOperators,
+    queryKey: ["all-users"],
+    queryFn: async () => {
+      const users = await listAllUsers();
+      return flattenUserCompanies(users);
+    },
     enabled: !!sessionUser,
   });
 
@@ -402,7 +473,7 @@ export default function UsersPage() {
     mutationFn: ({ companyIds, payload }: { companyIds: string[]; payload: Record<string, string> }) =>
       Promise.all(companyIds.map((companyId) => createCompanyOperator(companyId, payload))),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["all-company-operators"] });
+      queryClient.invalidateQueries({ queryKey: ["all-users"] });
       toast({ title: "Operador criado com sucesso." });
       setIsDrawerOpen(false);
       setFormState(EMPTY_FORM_STATE);
@@ -417,7 +488,7 @@ export default function UsersPage() {
     mutationFn: ({ companyId, id, payload }: { companyId: string; id: string; payload: Record<string, string> }) =>
       updateCompanyOperator(companyId, id, payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["all-company-operators"] });
+      queryClient.invalidateQueries({ queryKey: ["all-users"] });
       toast({ title: "Operador atualizado com sucesso." });
       setIsDrawerOpen(false);
       setFormState(EMPTY_FORM_STATE);
@@ -431,7 +502,7 @@ export default function UsersPage() {
   const deleteMutation = useMutation({
     mutationFn: ({ companyId, id }: { companyId: string; id: string }) => deleteCompanyOperator(companyId, id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["all-company-operators"] });
+      queryClient.invalidateQueries({ queryKey: ["all-users"] });
       toast({ title: "Operador inativado com sucesso." });
       setDeleteTarget(null);
     },
@@ -448,14 +519,26 @@ export default function UsersPage() {
 
     const nextStatus: OperatorCompanyStatus = operator.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
 
-    updateMutation.mutate({
-      companyId: operator.companyId,
-      id: operator.id,
-      payload: {
-        role: operator.role,
-        status: nextStatus,
-      },
-    });
+    fetch(`${API_URL}/api/company/${operator.companyId}/users/${operator.id}/status`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: nextStatus }),
+    })
+      .then(async (response) => {
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          throw new Error(data?.message || "Não foi possível alterar o status do usuário.");
+        }
+
+        queryClient.invalidateQueries({ queryKey: ["all-users"] });
+        toast({
+          title: `Usuário ${nextStatus === "ACTIVE" ? "ativado" : "inativado"} com sucesso.`,
+        });
+      })
+      .catch((error: Error) => {
+        toast({ title: error.message, variant: "destructive" });
+      });
   };
 
   const filteredOperators = useMemo(() => {
@@ -493,13 +576,14 @@ export default function UsersPage() {
     }
 
     setEditingOperator(operator);
+    setSelectedCompanyIds([operator.companyId]);
     setFormState({
       user: operator.operator.user ?? "",
       name: operator.operator.name,
       cpf: operator.operator.cpf,
       email: operator.operator.email ?? "",
       phone: operator.operator.phone,
-      role: operator.role,
+      role: normalizeOperatorRole(operator.role),
     });
     setIsDrawerOpen(true);
   };
@@ -550,13 +634,8 @@ export default function UsersPage() {
     }
 
     if (editingOperator) {
-      if (!selectedCompany) {
-        toast({ title: "Selecione uma empresa primeiro.", variant: "destructive" });
-        return;
-      }
-
       updateMutation.mutate({
-        companyId: selectedCompany.id,
+        companyId: editingOperator.companyId,
         id: editingOperator.id,
         payload,
       });
@@ -623,6 +702,7 @@ export default function UsersPage() {
                   <TableHead>E-mail</TableHead>
                   <TableHead>Perfil</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Primeiro acesso</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -642,6 +722,8 @@ export default function UsersPage() {
                     status: "ACTIVE" as const,
                   };
 
+                  const displayStatus = operator.status === "INACTIVE" ? "DELETED" : operator.status;
+
                   return (
                     <TableRow key={operator.id}>
                       <TableCell className="font-medium text-gray-800">{itemOperator.name}</TableCell>
@@ -652,8 +734,8 @@ export default function UsersPage() {
                       <TableCell>{ROLE_LABEL[operator.role] ?? "-"}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-3">
-                          <Badge variant={OPERATOR_STATUS_VARIANT[operator.status] ?? "secondary"}>
-                            {OPERATOR_STATUS_LABEL[operator.status] ?? "-"}
+                          <Badge variant={OPERATOR_STATUS_VARIANT[displayStatus] ?? "secondary"}>
+                            {OPERATOR_STATUS_LABEL[displayStatus] ?? "-"}
                           </Badge>
                           <Switch
                             checked={operator.status === "ACTIVE"}
@@ -662,6 +744,11 @@ export default function UsersPage() {
                             aria-label={`Alternar status do operador ${itemOperator.name}`}
                           />
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={operator.operator.firstAccess ? "secondary" : "default"}>
+                          {operator.operator.firstAccess ? "Pendente" : "Concluído"}
+                        </Badge>
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
@@ -835,8 +922,8 @@ export default function UsersPage() {
             <AlertDialogAction
               disabled={deleteMutation.isPending}
               onClick={() => {
-                if (!selectedCompany || !deleteTarget) return;
-                deleteMutation.mutate({ companyId: selectedCompany.id, id: deleteTarget.id });
+                if (!deleteTarget) return;
+                deleteMutation.mutate({ companyId: deleteTarget.companyId, id: deleteTarget.id });
               }}
             >
               Confirmar

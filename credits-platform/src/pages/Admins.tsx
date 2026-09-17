@@ -325,10 +325,8 @@ export default function AdminsPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge
-                        variant={user.mustChangePassword ? "secondary" : "default"}
-                      >
-                        {user.mustChangePassword ? "Pendente" : "Concluído"}
+                      <Badge variant={user.firstAccess ? "secondary" : "default"}>
+                        {user.firstAccess ? "Pendente" : "Concluído"}
                       </Badge>
                     </TableCell>
                     <TableCell>{formatDate(user.createdAt)}</TableCell>
