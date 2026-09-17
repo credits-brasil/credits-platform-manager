@@ -14,11 +14,11 @@ import {
   ScrollText,
 } from "lucide-react";
 
-const SIDEBAR_BG = "#243871";
-const SIDEBAR_BORDER = "#1a2a56";
-const SIDEBAR_HOVER = "#2e4590";
-const SIDEBAR_SUB_HOVER = "#243070";
-const ACTIVE_ORANGE = "#ED884A";
+const SIDEBAR_BG = "#0f1d32";
+const SIDEBAR_BORDER = "#1d3557";
+const SIDEBAR_HOVER = "#172d4b";
+const SIDEBAR_SUB_HOVER = "#13263f";
+const ACTIVE_ORANGE = "#EE8D4C";
 
 interface SubItem {
   label: string;

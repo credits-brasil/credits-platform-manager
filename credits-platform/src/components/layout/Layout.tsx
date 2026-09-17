@@ -13,7 +13,7 @@ export default function Layout({ children, onLogout }: LayoutProps) {
   const [collapsed, setCollapsed] = useState(false);
 
   return (
-    <div className="h-screen bg-background">
+    <div className="h-screen" style={{ background: "#071827" }}>
       <Sidebar
         collapsed={collapsed}
         onToggle={() => setCollapsed((c) => !c)}
@@ -26,6 +26,8 @@ export default function Layout({ children, onLogout }: LayoutProps) {
           marginLeft: collapsed ? "64px" : "240px",
           marginTop: `${HEADER_HEIGHT}px`,
           transition: "margin-left 0.3s ease",
+          background: "#071827",
+          minHeight: "calc(100vh - 68px)",
         }}
       >
         <div className="mx-auto w-full">

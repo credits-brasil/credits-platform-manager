@@ -111,19 +111,21 @@ function App() {
   };
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router
-            isAuthenticated={isAuthenticated}
-            onLogin={handleLogin}
-            onLogout={handleLogout}
-          />
-        </WouterRouter>
-        
-        <Toaster />
-      </TooltipProvider>
-    </QueryClientProvider>
+    <div className="manager-app">
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+            <Router
+              isAuthenticated={isAuthenticated}
+              onLogin={handleLogin}
+              onLogout={handleLogout}
+            />
+          </WouterRouter>
+
+          <Toaster />
+        </TooltipProvider>
+      </QueryClientProvider>
+    </div>
   );
 }
 

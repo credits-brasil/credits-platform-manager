@@ -270,9 +270,9 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
   };
 
   return (
-    <div className="flex h-[100dvh] w-full font-sans bg-[#F4F6FA] text-[#0A1F5C] selection:bg-[#F5821F] selection:text-white overflow-hidden">
+    <div className="manager-app flex h-[100dvh] w-full font-sans bg-[#071827] text-slate-100 selection:bg-[#F5821F] selection:text-white overflow-hidden">
       <motion.div
-        className="hidden md:flex w-1/2 bg-[#0A1F5C] text-white flex-col relative overflow-hidden"
+        className="hidden md:flex w-1/2 bg-[#081a2d] text-white flex-col relative overflow-hidden border-r border-slate-800"
         initial={{ x: "-10%", opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
         transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
@@ -339,7 +339,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
       </motion.div>
 
       <motion.div
-        className="w-full md:w-1/2 flex flex-col relative bg-[#F4F6FA]"
+        className="w-full md:w-1/2 flex flex-col relative bg-[#0b1727]"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.1, duration: 0.5 }}
@@ -383,7 +383,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                 <button
                   type="button"
                   onClick={backToLogin}
-                  className="mb-5 inline-flex items-center gap-2 text-sm font-semibold text-[#0A1F5C] hover:text-[#F5821F] transition-colors cursor-pointer"
+                  className="mb-5 inline-flex items-center gap-2 text-sm font-semibold text-slate-200 hover:text-[#F5821F] transition-colors cursor-pointer"
                 >
                   <ArrowLeft className="h-4 w-4" />
                   Voltar para o login
@@ -398,7 +398,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                 </span>
               </div>
 
-              <h2 className="text-3xl lg:text-4xl font-bold mb-2 tracking-tight text-[#0A1F5C]">
+              <h2 className="text-3xl lg:text-4xl font-bold mb-2 tracking-tight text-slate-100">
                 {recoveryStep === "login"
                   ? "Bem-vindo de volta"
                   : recoveryStep === "email"
@@ -410,7 +410,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                         : "Crie uma nova senha"}
               </h2>
 
-              <p className="text-slate-500">
+              <p className="text-slate-400">
                 {recoveryStep === "login"
                   ? "Entre com seus dados para acessar sua conta."
                   : recoveryStep === "email"
@@ -427,14 +427,14 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.4, duration: 0.5 }}
-              className="bg-white rounded-2xl shadow-xl shadow-slate-200/50 p-6 md:p-8 border border-slate-100"
+              className="bg-[#0e1d2d] rounded-2xl shadow-[0_20px_45px_rgba(2,6,23,0.55)] p-6 md:p-8 border border-slate-800"
             >
               {recoveryStep === "firstAccess" ? (
                 <form className="space-y-5" onSubmit={handleFirstAccessSubmit}>
                   <div className="space-y-1.5">
                     <label
                       htmlFor="first-access-email"
-                      className="text-sm font-semibold text-[#0A1F5C] block"
+                      className="text-sm font-semibold text-slate-200 block"
                     >
                       E-mail
                     </label>
@@ -445,7 +445,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                         type="email"
                         value={recoveryEmail || username}
                         onChange={(event) => setRecoveryEmail(event.target.value)}
-                        className="block w-full rounded-lg border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-3 text-sm placeholder:text-slate-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#F5821F]"
+                        className="block w-full rounded-lg border border-slate-700 bg-[#101f31] py-2.5 pl-10 pr-3 text-sm text-slate-100 placeholder:text-slate-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#F5821F]"
                         placeholder="seuemail@empresa.com.br"
                         required
                       />
@@ -455,7 +455,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                   <div className="space-y-1.5">
                     <label
                       htmlFor="first-access-current-password"
-                      className="text-sm font-semibold text-[#0A1F5C] block"
+                      className="text-sm font-semibold text-slate-200 block"
                     >
                       Senha temporária
                     </label>
@@ -466,7 +466,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                         type={showFirstAccessPassword ? "text" : "password"}
                         value={firstAccessCurrentPassword}
                         onChange={(event) => setFirstAccessCurrentPassword(event.target.value)}
-                        className="block w-full rounded-lg border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-10 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#F5821F]"
+                        className="block w-full rounded-lg border border-slate-700 bg-[#101f31] py-2.5 pl-10 pr-10 text-sm text-slate-100 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#F5821F]"
                         placeholder="Digite a senha temporária"
                         autoComplete="current-password"
                         required
@@ -474,7 +474,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                       <button
                         type="button"
                         onClick={() => setShowFirstAccessPassword((prev) => !prev)}
-                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 transition-colors"
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-200 transition-colors"
                       >
                         {showFirstAccessPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                       </button>
@@ -484,7 +484,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                   <div className="space-y-1.5">
                     <label
                       htmlFor="first-access-new-password"
-                      className="text-sm font-semibold text-[#0A1F5C] block"
+                      className="text-sm font-semibold text-slate-200 block"
                     >
                       Nova senha
                     </label>
@@ -495,7 +495,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                         type="password"
                         value={firstAccessNewPassword}
                         onChange={(event) => setFirstAccessNewPassword(event.target.value)}
-                        className="block w-full rounded-lg border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-3 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#F5821F]"
+                        className="block w-full rounded-lg border border-slate-700 bg-[#101f31] py-2.5 pl-10 pr-3 text-sm text-slate-100 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#F5821F]"
                         placeholder="Mínimo de 8 caracteres"
                         autoComplete="new-password"
                         required
@@ -506,7 +506,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                   <div className="space-y-1.5">
                     <label
                       htmlFor="first-access-confirmation"
-                      className="text-sm font-semibold text-[#0A1F5C] block"
+                      className="text-sm font-semibold text-slate-200 block"
                     >
                       Confirmar nova senha
                     </label>
@@ -517,7 +517,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                         type="password"
                         value={firstAccessConfirmation}
                         onChange={(event) => setFirstAccessConfirmation(event.target.value)}
-                        className="block w-full rounded-lg border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-3 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#F5821F]"
+                        className="block w-full rounded-lg border border-slate-700 bg-[#101f31] py-2.5 pl-10 pr-3 text-sm text-slate-100 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#F5821F]"
                         placeholder="Digite a senha novamente"
                         autoComplete="new-password"
                         required
@@ -539,7 +539,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                   <div className="space-y-1.5">
                     <label
                       htmlFor="username"
-                      className="text-sm font-semibold text-[#0A1F5C] block"
+                      className="text-sm font-semibold text-slate-200 block"
                     >
                       E-mail corporativo
                     </label>
@@ -552,7 +552,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                         type="email"
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
-                        className="block w-full pl-10 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#F5821F] focus:border-transparent transition-shadow"
+                        className="block w-full pl-10 pr-3 py-2.5 bg-[#101f31] border border-slate-700 rounded-lg text-sm text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#F5821F] focus:border-transparent transition-shadow"
                         placeholder="seuemail@empresa.com.br"
                         autoComplete="email"
                       />
@@ -562,7 +562,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                   <div className="space-y-1.5">
                     <label
                       htmlFor="password"
-                      className="text-sm font-semibold text-[#0A1F5C] block"
+                      className="text-sm font-semibold text-slate-200 block"
                     >
                       Senha
                     </label>
@@ -576,7 +576,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                         type={showPassword ? "text" : "password"}
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        className="block w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#F5821F] focus:border-transparent transition-shadow"
+                        className="block w-full pl-10 pr-10 py-2.5 bg-[#101f31] border border-slate-700 rounded-lg text-sm text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#F5821F] focus:border-transparent transition-shadow"
                         placeholder="Digite sua senha"
                         autoComplete="current-password"
                       />
@@ -604,7 +604,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                         onCheckedChange={(checked) =>
                           setKeepConnected(checked === true)
                         }
-                        className="flex h-5 w-5 items-center justify-center rounded border border-slate-300 bg-white shadow-sm data-[state=checked]:bg-[#0A1F5C] data-[state=checked]:border-[#0A1F5C] transition-colors hover:border-[#0A1F5C] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#F5821F]"
+                        className="flex h-5 w-5 items-center justify-center rounded border border-slate-600 bg-[#101f31] shadow-sm data-[state=checked]:bg-[#F5821F] data-[state=checked]:border-[#F5821F] transition-colors hover:border-[#F5821F] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#F5821F]"
                       >
                         <CheckboxPrimitive.Indicator className="text-white">
                           <svg
@@ -625,7 +625,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                       </CheckboxPrimitive.Root>
                       <label
                         htmlFor="remember"
-                        className="text-sm font-medium text-slate-600 cursor-pointer select-none"
+                        className="text-sm font-medium text-slate-300 cursor-pointer select-none"
                       >
                         Manter conectado
                       </label>
@@ -637,7 +637,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                         setError(null);
                         setRecoveryStep("email");
                       }}
-                      className="text-sm font-semibold text-[#0A1F5C] hover:text-[#F5821F] transition-colors"
+                      className="text-sm font-semibold text-slate-200 hover:text-[#F5821F] transition-colors"
                     >
                       Esqueci minha senha
                     </a>
@@ -659,7 +659,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                   <div className="space-y-1.5">
                     <label
                       htmlFor="recovery-email"
-                      className="text-sm font-semibold text-[#0A1F5C] block"
+                      className="text-sm font-semibold text-slate-200 block"
                     >
                       E-mail cadastrado
                     </label>
@@ -672,7 +672,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                         onChange={(event) =>
                           setRecoveryEmail(event.target.value)
                         }
-                        className="block w-full rounded-lg border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-3 text-sm placeholder:text-slate-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#F5821F]"
+                        className="block w-full rounded-lg border border-slate-700 bg-[#101f31] py-2.5 pl-10 pr-3 text-sm text-slate-100 placeholder:text-slate-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#F5821F]"
                         placeholder="seuemail@empresa.com.br"
                         autoComplete="email"
                         required
@@ -700,7 +700,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                   <div className="space-y-1.5">
                     <label
                       htmlFor="recovery-otp"
-                      className="text-sm font-semibold text-[#0A1F5C] block"
+                      className="text-sm font-semibold text-slate-200 block"
                     >
                       Código de verificação
                     </label>
@@ -721,7 +721,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                             key={index}
                             index={index}
                             aria-invalid={Boolean(error)}
-                            className="!h-14 !w-12 rounded-xl !border border-slate-200 bg-slate-50 text-xl font-bold text-[#0A1F5C] shadow-sm data-[active=true]:border-[#F5821F] data-[active=true]:ring-4 data-[active=true]:ring-[#F5821F]/15"
+                            className="!h-14 !w-12 rounded-xl !border border-slate-700 bg-[#101f31] text-xl font-bold text-slate-100 shadow-sm data-[active=true]:border-[#F5821F] data-[active=true]:ring-4 data-[active=true]:ring-[#F5821F]/15"
                           />
                         ))}
                       </InputOTPGroup>
@@ -732,7 +732,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                             key={index}
                             index={index}
                             aria-invalid={Boolean(error)}
-                            className="!h-14 !w-12 rounded-xl !border border-slate-200 bg-slate-50 text-xl font-bold text-[#0A1F5C] shadow-sm data-[active=true]:border-[#F5821F] data-[active=true]:ring-4 data-[active=true]:ring-[#F5821F]/15"
+                            className="!h-14 !w-12 rounded-xl !border border-slate-700 bg-[#101f31] text-xl font-bold text-slate-100 shadow-sm data-[active=true]:border-[#F5821F] data-[active=true]:ring-4 data-[active=true]:ring-[#F5821F]/15"
                           />
                         ))}
                       </InputOTPGroup>
@@ -753,7 +753,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                   <div className="space-y-1.5">
                     <label
                       htmlFor="new-password"
-                      className="text-sm font-semibold text-[#0A1F5C] block"
+                      className="text-sm font-semibold text-slate-200 block"
                     >
                       Nova senha
                     </label>
@@ -764,7 +764,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                         type="password"
                         value={newPassword}
                         onChange={(event) => setNewPassword(event.target.value)}
-                        className="block w-full rounded-lg border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-3 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#F5821F]"
+                        className="block w-full rounded-lg border border-slate-700 bg-[#101f31] py-2.5 pl-10 pr-3 text-sm text-slate-100 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#F5821F]"
                         placeholder="Mínimo de 8 caracteres"
                         autoComplete="new-password"
                         required
@@ -774,7 +774,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                   <div className="space-y-1.5">
                     <label
                       htmlFor="password-confirmation"
-                      className="text-sm font-semibold text-[#0A1F5C] block"
+                      className="text-sm font-semibold text-slate-200 block"
                     >
                       Confirmar nova senha
                     </label>
@@ -787,7 +787,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                         onChange={(event) =>
                           setPasswordConfirmation(event.target.value)
                         }
-                        className="block w-full rounded-lg border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-3 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#F5821F]"
+                        className="block w-full rounded-lg border border-slate-700 bg-[#101f31] py-2.5 pl-10 pr-3 text-sm text-slate-100 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#F5821F]"
                         placeholder="Digite a senha novamente"
                         autoComplete="new-password"
                         required
@@ -813,7 +813,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
               transition={{ delay: 0.6, duration: 0.5 }}
               className="mt-6 flex flex-col items-center gap-4"
             >
-              <div className="flex items-center gap-2 text-xs font-medium text-slate-500 text-center">
+              <div className="flex items-center gap-2 text-xs font-medium text-slate-400 text-center">
                 <Lock className="h-3.5 w-3.5 shrink-0" />
                 Seus dados sao tratados com seguranca e privacidade.
               </div>
