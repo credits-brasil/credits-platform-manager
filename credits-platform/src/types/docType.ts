@@ -1,1 +1,0 @@
-export type DocType = "CPF" | "CNPJ";

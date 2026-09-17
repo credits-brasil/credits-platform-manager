@@ -6,15 +6,17 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import Layout from "@/components/layout/Layout";
 import HomePage from "@/pages/Home";
 import LoginPage from "@/pages/Login";
-import SpcMaxiPage from "@/pages/SpcMaxi";
-import SpcMaxiResultadoPage from "@/pages/SpcMaxiResultado";
-import SpcPositivoIntermediarioPJPage from "@/pages/SpcPositivoIntermediarioPJ";
-import SpcPositivoIntermediarioPJResultadoPage from "@/pages/SpcPositivoIntermediarioPJResultado";
+import CompaniesPage from "@/pages/Companies";
+import OperatorsPage from "@/pages/Operators";
+import UsersPage from "@/pages/Users";
 import NotFound from "@/pages/not-found";
+import { loginRequest } from "@/lib/auth";
 
 const queryClient = new QueryClient();
 const AUTH_STORAGE_KEY = "credits-platform-authenticated";
-const HOME_ROUTE = "/verticais/credito-risco/spc-maxi";
+const AUTH_TOKEN_KEY = "credits-platform-access-token";
+const AUTH_USER_KEY = "credits-platform-auth-user";
+const HOME_ROUTE = "/home";
 
 function HomeRedirect() {
   const [, setLocation] = useLocation();
@@ -52,7 +54,7 @@ function Router({
   onLogout,
 }: {
   isAuthenticated: boolean;
-  onLogin: (username: string, password: string) => boolean;
+  onLogin: (username: string, password: string) => Promise<string | null>;
   onLogout: () => void;
 }) {
   if (!isAuthenticated) {
@@ -72,10 +74,9 @@ function Router({
         <Route path="/login" component={ProtectedLoginRedirect} />
         <Route path="/" component={HomeRedirect} />
         <Route path="/home" component={HomePage} />
-        <Route path="/verticais/credito-risco/spc-maxi" component={SpcMaxiPage} />
-        <Route path="/verticais/credito-risco/spc-maxi/resultado" component={SpcMaxiResultadoPage} />
-        <Route path="/verticais/credito-risco/spc-positivo-intermediario-pj" component={SpcPositivoIntermediarioPJPage} />
-        <Route path="/verticais/credito-risco/spc-positivo-intermediario-pj/resultado" component={SpcPositivoIntermediarioPJResultadoPage} />
+        <Route path="/configuracoes/empresas" component={CompaniesPage} />
+        <Route path="/configuracoes/operadores" component={OperatorsPage} />
+        <Route path="/configuracoes/usuarios" component={UsersPage} />
         <Route component={NotFound} />
       </Switch>
     </Layout>
@@ -88,21 +89,24 @@ function App() {
     return localStorage.getItem(AUTH_STORAGE_KEY) === "true";
   });
 
-  const handleLogin = (username: string, password: string) => {
-    const hasValidCredentials =
-      username.trim().toLowerCase() === "admin" && password === "123456";
+  const handleLogin = async (username: string, password: string) => {
+    try {
+      const session = await loginRequest(username.trim(), password.trim());
 
-    if (!hasValidCredentials) {
-      return false;
+      localStorage.setItem(AUTH_STORAGE_KEY, "true");
+      localStorage.setItem(AUTH_TOKEN_KEY, session.accessToken);
+      localStorage.setItem(AUTH_USER_KEY, JSON.stringify(session.admin));
+      setIsAuthenticated(true);
+      return null;
+    } catch (error) {
+      return error instanceof Error ? error.message : "Não foi possível autenticar.";
     }
-
-    localStorage.setItem(AUTH_STORAGE_KEY, "true");
-    setIsAuthenticated(true);
-    return true;
   };
 
   const handleLogout = () => {
     localStorage.removeItem(AUTH_STORAGE_KEY);
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+    localStorage.removeItem(AUTH_USER_KEY);
     setIsAuthenticated(false);
   };
 

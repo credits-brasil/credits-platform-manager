@@ -1,21 +1,26 @@
+import { cpf } from "cpf-cnpj-validator";
+
 type FormatCpfMode = "input" | "display";
 
-export function formatCpf(cpf?: string, mode: FormatCpfMode = "display"): string {
-  const value = (cpf ?? "").replace(/\D/g, "");
+export function formatCpf(value?: string, mode: FormatCpfMode = "display"): string {
+  const clean = cpf.strip(value ?? "");
 
   if (mode === "input") {
-    return value
-      .slice(0, 11)
+    const limited = clean.slice(0, 11);
+
+    if (!limited) return "";
+
+    return limited
       .replace(/(\d{3})(\d)/, "$1.$2")
       .replace(/(\d{3})(\d)/, "$1.$2")
       .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
   }
 
-  if (!cpf) return "-";
+  if (!value) return "-";
 
-  return value.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+  return cpf.format(clean) || "-";
 }
 
-export function formatCPF(cpf?: string): string {
-  return formatCpf(cpf, "display");
+export function formatCPF(value?: string): string {
+  return formatCpf(value, "display");
 }

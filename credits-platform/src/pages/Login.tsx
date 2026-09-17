@@ -1,40 +1,179 @@
 import { FormEvent, useState } from "react";
 import { motion } from "framer-motion";
 import { useLocation } from "wouter";
-import { Mail, Lock, Eye, EyeOff } from "lucide-react";
+import { ArrowLeft, Mail, Lock, Eye, EyeOff, KeyRound } from "lucide-react";
 import * as CheckboxPrimitive from "@radix-ui/react-checkbox";
+import { REGEXP_ONLY_DIGITS } from "input-otp";
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSeparator,
+  InputOTPSlot,
+} from "@/components/ui/input-otp";
 
 const creditsLogo = "/login-assets/credits-mark.png";
 const cMonogram = "/login-assets/c-shape-blue.png";
 const cdlSpcLogos = "/login-assets/partners-spc.png";
 const cGlow = "/login-assets/c-shape-glow.png";
 const chatGPTImage = "/attached-assets/credits-brand-primary.png";
+const API_URL = import.meta.env.VITE_API_URL;
 
 interface LoginPageProps {
-  onLogin: (username: string, password: string) => boolean;
+  onLogin: (username: string, password: string) => Promise<string | null>;
 }
 
 export default function LoginPage({ onLogin }: LoginPageProps) {
   const [, setLocation] = useLocation();
-  const [username, setUsername] = useState("admin");
-  const [password, setPassword] = useState("123456");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [keepConnected, setKeepConnected] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [recoveryStep, setRecoveryStep] = useState<"login" | "email" | "otp" | "password">("login");
+  const [recoveryEmail, setRecoveryEmail] = useState("");
+  const [otp, setOtp] = useState("");
+  const [resetToken, setResetToken] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [passwordConfirmation, setPasswordConfirmation] = useState("");
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    const didLogin = onLogin(username, password);
+    setIsSubmitting(true);
+    const errorMessage = await onLogin(username, password);
+    setIsSubmitting(false);
 
-    if (!didLogin) {
-      setError("Credenciais inválidas. Tente novamente.");
+    if (errorMessage) {
+      setError(errorMessage);
 
       return;
     }
 
     setError(null);
-    setLocation("/verticais/credito-risco/spc-maxi");
+    setLocation("/home");
+  };
+
+  const handleRecoveryRequest = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError(null);
+
+    try {
+      const response = await fetch(`${API_URL}/api/auth/admin/forgot-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: recoveryEmail.trim() }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.message ?? "Não foi possível enviar o código. Tente novamente.");
+        return;
+      }
+
+      setResetToken("");
+      setOtp("");
+      setRecoveryStep("otp");
+    } catch {
+      setError("Não foi possível conectar ao servidor. Tente novamente.");
+    }
+  };
+
+  const handleOtpValidation = async (code: string) => {
+    if (isVerifyingOtp || code.length !== 6) {
+      return;
+    }
+
+    setIsVerifyingOtp(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`${API_URL}/api/auth/admin/verify-reset-code`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: recoveryEmail.trim(), code }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (response.status === 410) {
+          setRecoveryStep("email");
+          setOtp("");
+          setResetToken("");
+        }
+
+        setError(data.message ?? "Código inválido. Confira os 6 dígitos e tente novamente.");
+        setIsVerifyingOtp(false);
+        return;
+      }
+
+      if (typeof data.resetToken !== "string") {
+        setError("Não foi possível iniciar a redefinição. Solicite um novo código.");
+        setIsVerifyingOtp(false);
+        return;
+      }
+
+      setResetToken(data.resetToken);
+      setRecoveryStep("password");
+      setNewPassword("");
+      setPasswordConfirmation("");
+    } catch {
+      setError("Não foi possível validar o código. Tente novamente.");
+    } finally {
+      setIsVerifyingOtp(false);
+    }
+  };
+
+  const handlePasswordReset = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError(null);
+
+    if (newPassword.length < 8) {
+      setError("A nova senha deve ter pelo menos 8 caracteres.");
+      return;
+    }
+
+    if (newPassword !== passwordConfirmation) {
+      setError("As senhas não conferem.");
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/api/auth/admin/reset-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: recoveryEmail.trim(),
+          token: resetToken,
+          newPassword,
+        }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.message ?? "Não foi possível redefinir sua senha.");
+        return;
+      }
+
+      setRecoveryStep("login");
+      setRecoveryEmail("");
+      setOtp("");
+      setResetToken("");
+      setNewPassword("");
+      setPasswordConfirmation("");
+      setError(null);
+    } catch {
+      setError("Não foi possível redefinir sua senha. Tente novamente.");
+    }
+  };
+
+  const backToLogin = () => {
+    setError(null);
+    setRecoveryStep("login");
+    setResetToken("");
+    setOtp("");
   };
 
   return (
@@ -147,6 +286,17 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
               transition={{ delay: 0.3, duration: 0.5 }}
               className="mb-6"
             >
+              {recoveryStep !== "login" && (
+                <button
+                  type="button"
+                  onClick={backToLogin}
+                  className="mb-5 inline-flex items-center gap-2 text-sm font-semibold text-[#0A1F5C] hover:text-[#F5821F] transition-colors cursor-pointer"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  Voltar para o login
+                </button>
+              )}
+
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-2 h-2 rounded-full bg-[#F5821F]"></div>
 
@@ -156,11 +306,23 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
               </div>
 
               <h2 className="text-3xl lg:text-4xl font-bold mb-2 tracking-tight text-[#0A1F5C]">
-                Bem-vindo de volta
+                {recoveryStep === "login"
+                  ? "Bem-vindo de volta"
+                  : recoveryStep === "email"
+                    ? "Recupere sua senha"
+                    : recoveryStep === "otp"
+                      ? "Valide seu código"
+                      : "Crie uma nova senha"}
               </h2>
 
               <p className="text-slate-500">
-                Entre com seus dados para acessar sua conta.
+                {recoveryStep === "login"
+                  ? "Entre com seus dados para acessar sua conta."
+                  : recoveryStep === "email"
+                    ? "Informe seu e-mail para receber um código de acesso."
+                    : recoveryStep === "otp"
+                      ? `Digite o código de 6 dígitos enviado para ${recoveryEmail}.`
+                      : "Defina uma senha nova para acessar sua conta."}
               </p>
             </motion.div>
 
@@ -170,6 +332,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
               transition={{ delay: 0.4, duration: 0.5 }}
               className="bg-white rounded-2xl shadow-xl shadow-slate-200/50 p-6 md:p-8 border border-slate-100"
             >
+              {recoveryStep === "login" ? (
               <form className="space-y-5" onSubmit={handleSubmit}>
                 <div className="space-y-1.5">
                   <label
@@ -184,12 +347,12 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                     </div>
                     <input
                       id="username"
-                      //   type="email"
+                      type="email"
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
                       className="block w-full pl-10 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#F5821F] focus:border-transparent transition-shadow"
                       placeholder="seuemail@empresa.com.br"
-                      autoComplete="username"
+                      autoComplete="email"
                     />
                   </div>
                 </div>
@@ -267,6 +430,11 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                   </div>
                   <a
                     href="#"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      setError(null);
+                      setRecoveryStep("email");
+                    }}
                     className="text-sm font-semibold text-[#0A1F5C] hover:text-[#F5821F] transition-colors"
                   >
                     Esqueci minha senha
@@ -275,14 +443,94 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
 
                 <button
                   type="submit"
-                  className="w-full mt-4 bg-[#F5821F] hover:bg-[#F5821F]/90 text-white font-bold py-3 px-4 rounded-lg shadow-lg shadow-[#F5821F]/20 transition-all hover:-translate-y-0.5 hover:shadow-xl hover:shadow-[#F5821F]/30 active:translate-y-0 active:shadow-md flex items-center justify-center gap-2 group"
+                  disabled={isSubmitting}
+                  className="w-full mt-4 bg-[#F5821F] hover:bg-[#F5821F]/90 text-white font-bold py-3 px-4 rounded-lg shadow-lg shadow-[#F5821F]/20 transition-all hover:-translate-y-0.5 hover:shadow-xl hover:shadow-[#F5821F]/30 active:translate-y-0 active:shadow-md flex items-center justify-center gap-2 group disabled:opacity-60 disabled:pointer-events-none cursor-pointer"
                 >
-                  Acessar plataforma
+                  {isSubmitting ? "Entrando..." : "Acessar plataforma"}
                   <span className="transform transition-transform group-hover:translate-x-1">
                     →
                   </span>
                 </button>
               </form>
+              ) : recoveryStep === "email" ? (
+                <form className="space-y-5" onSubmit={handleRecoveryRequest}>
+                  <div className="space-y-1.5">
+                    <label htmlFor="recovery-email" className="text-sm font-semibold text-[#0A1F5C] block">
+                      E-mail cadastrado
+                    </label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                      <input
+                        id="recovery-email"
+                        type="email"
+                        value={recoveryEmail}
+                        onChange={(event) => setRecoveryEmail(event.target.value)}
+                        className="block w-full rounded-lg border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-3 text-sm placeholder:text-slate-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#F5821F]"
+                        placeholder="seuemail@empresa.com.br"
+                        autoComplete="email"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  {error && <p className="text-sm text-red-500">{error}</p>}
+
+                  <button type="submit" className="w-full rounded-lg bg-[#F5821F] px-4 py-3 font-bold text-white shadow-lg shadow-[#F5821F]/20 transition-all hover:-translate-y-0.5 hover:bg-[#F5821F]/90 cursor-pointer">
+                    Enviar código
+                  </button>
+                </form>
+              ) : recoveryStep === "otp" ? (
+                <form className="space-y-5" onSubmit={(event) => { event.preventDefault(); handleOtpValidation(otp); }}>
+                  <div className="space-y-1.5">
+                    <label htmlFor="recovery-otp" className="text-sm font-semibold text-[#0A1F5C] block">
+                      Código de verificação
+                    </label>
+                    <InputOTP
+                      id="recovery-otp"
+                      maxLength={6}
+                      pattern={REGEXP_ONLY_DIGITS}
+                      value={otp}
+                      onChange={setOtp}
+                      onComplete={handleOtpValidation}
+                      autoFocus
+                      aria-label="Código de verificação de seis dígitos"
+                      containerClassName="justify-center gap-3"
+                    >
+                      <InputOTPGroup className="gap-2">
+                        {[0, 1, 2].map((index) => <InputOTPSlot key={index} index={index} aria-invalid={Boolean(error)} className="!h-14 !w-12 rounded-xl !border border-slate-200 bg-slate-50 text-xl font-bold text-[#0A1F5C] shadow-sm data-[active=true]:border-[#F5821F] data-[active=true]:ring-4 data-[active=true]:ring-[#F5821F]/15" />)}
+                      </InputOTPGroup>
+                      <InputOTPSeparator className="text-slate-300" />
+                      <InputOTPGroup className="gap-2">
+                        {[3, 4, 5].map((index) => <InputOTPSlot key={index} index={index} aria-invalid={Boolean(error)} className="!h-14 !w-12 rounded-xl !border border-slate-200 bg-slate-50 text-xl font-bold text-[#0A1F5C] shadow-sm data-[active=true]:border-[#F5821F] data-[active=true]:ring-4 data-[active=true]:ring-[#F5821F]/15" />)}
+                      </InputOTPGroup>
+                    </InputOTP>
+                  </div>
+
+                  {error && <p className="text-sm text-red-500">{error}</p>}
+                  <button type="submit" disabled={isVerifyingOtp} className="w-full rounded-lg bg-[#F5821F] px-4 py-3 font-bold text-white disabled:opacity-70">
+                    {isVerifyingOtp ? "Validando..." : "Validar código"}
+                  </button>
+                </form>
+              ) : (
+                <form className="space-y-5" onSubmit={handlePasswordReset}>
+                  <div className="space-y-1.5">
+                    <label htmlFor="new-password" className="text-sm font-semibold text-[#0A1F5C] block">Nova senha</label>
+                    <div className="relative">
+                      <KeyRound className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                      <input id="new-password" type="password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} className="block w-full rounded-lg border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-3 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#F5821F]" placeholder="Mínimo de 8 caracteres" autoComplete="new-password" required />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label htmlFor="password-confirmation" className="text-sm font-semibold text-[#0A1F5C] block">Confirmar nova senha</label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                      <input id="password-confirmation" type="password" value={passwordConfirmation} onChange={(event) => setPasswordConfirmation(event.target.value)} className="block w-full rounded-lg border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-3 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#F5821F]" placeholder="Digite a senha novamente" autoComplete="new-password" required />
+                    </div>
+                  </div>
+                  {error && <p className="text-sm text-red-500">{error}</p>}
+                  <button type="submit" className="w-full rounded-lg bg-[#F5821F] px-4 py-3 font-bold text-white">Salvar nova senha</button>
+                </form>
+              )}
             </motion.div>
 
             <motion.div

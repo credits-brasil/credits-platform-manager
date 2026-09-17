@@ -1,8 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { Bell, ChevronDown, LogOut, User } from "lucide-react";
-import CompanySelector from "./CompanySelector";
 
 const HEADER_HEIGHT = 68;
+const AUTH_USER_KEY = "credits-platform-auth-user";
+
+interface AuthUser {
+  name: string;
+  email: string;
+}
 
 interface HeaderProps {
   sidebarCollapsed: boolean;
@@ -11,6 +16,7 @@ interface HeaderProps {
 
 export default function Header({ sidebarCollapsed, onLogout }: HeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -19,6 +25,17 @@ export default function Header({ sidebarCollapsed, onLogout }: HeaderProps) {
         setMenuOpen(false);
       }
     };
+
+    const storedUser = localStorage.getItem(AUTH_USER_KEY);
+    if (storedUser) {
+      try {
+        setUser(JSON.parse(storedUser) as AuthUser);
+      } catch {
+        setUser(null);
+      }
+    } else {
+      setUser(null);
+    }
 
     document.addEventListener("mousedown", handleOutsideClick);
     return () => document.removeEventListener("mousedown", handleOutsideClick);
@@ -34,8 +51,6 @@ export default function Header({ sidebarCollapsed, onLogout }: HeaderProps) {
       }}
     >
       <div className="flex items-center gap-4">
-        <CompanySelector />
-        <div className="h-8 w-px bg-gray-200 flex-shrink-0" />
         <img
           src="/partner-logos.png"
           alt="CDL São Paulo / SPC Brasil"
@@ -60,8 +75,8 @@ export default function Header({ sidebarCollapsed, onLogout }: HeaderProps) {
             </div>
 
             <div className="flex flex-col leading-tight text-left">
-              <span className="text-sm font-semibold text-gray-800">Usuário</span>
-              <span className="text-xs text-gray-500">usuario@credits.com</span>
+              <span className="text-sm font-semibold text-gray-800">{user?.name || "Usuário"}</span>
+              <span className="text-xs text-gray-500">{user?.email || "usuario@credits.com"}</span>
             </div>
             <ChevronDown
               size={14}

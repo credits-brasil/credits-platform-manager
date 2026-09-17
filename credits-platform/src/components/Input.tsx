@@ -1,26 +1,34 @@
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 
 type InputComponentProps = {
+  id?: string;
+  type?: string;
   value: string;
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onBlur?: () => void;
   placeholder?: string;
   autoComplete?: string;
   disabled?: boolean;
+  readOnly?: boolean;
   required?: boolean;
+  min?: number;
+  className?: string;
   showError?: boolean;
   showSuccess?: boolean;
-  className?: string;
 };
 
 export function InputComponent({
+  id,
+  type = "text",
   value,
   onChange,
   onBlur,
   placeholder,
   autoComplete,
   disabled,
+  readOnly = false,
   required,
+  min,
   showError = false,
   showSuccess = false,
   className,
@@ -28,14 +36,17 @@ export function InputComponent({
   return (
     <div className="relative">
       <input
-        type="text"
+        id={id}
+        type={type}
         value={value}
-        onChange={onChange}
+        onChange={onChange ?? (() => undefined)}
         onBlur={onBlur}
         placeholder={placeholder}
         autoComplete={autoComplete}
         disabled={disabled}
+        readOnly={readOnly}
         required={required}
+        min={min}
         className={`w-full max-w-[100%] rounded-lg border px-3.5 py-2 pr-9 text-sm text-gray-800 placeholder-gray-400 outline-none transition ${className ?? ""}`}
         style={{
           borderColor: showError ? "#ef4444" : showSuccess ? "#22c55e" : "#d1d5db",
@@ -48,17 +59,10 @@ export function InputComponent({
       />
 
       {showError && (
-        <AlertCircle
-          size={15}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-red-500 pointer-events-none"
-        />
+        <AlertCircle size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-red-500" />
       )}
-
       {showSuccess && (
-        <CheckCircle2
-          size={15}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-green-500 pointer-events-none"
-        />
+        <CheckCircle2 size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-green-500" />
       )}
     </div>
   );

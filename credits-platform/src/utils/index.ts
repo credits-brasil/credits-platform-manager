@@ -7,6 +7,4 @@ export { formatCurrency } from "./formatCurrency";
 export { formatDate } from "./formatDate";
 export { formatPhone } from "./formatPhone";
 export { getCompanyAge } from "./getCompanyAge";
-export { detectDocTypeByInput } from "./detectDocTypeByInput";
-export { validateCPF } from "./validateCPF";
 export { validateCNPJ } from "./validateCNPJ";

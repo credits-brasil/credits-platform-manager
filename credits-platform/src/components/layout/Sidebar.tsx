@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import {
   Home,
-  BookOpen,
   CreditCard,
   ChevronLeft,
   ChevronRight,
@@ -86,16 +85,22 @@ const menuGroups: MenuGroup[] = [
       //   path: "/catalogo",
       // },
       {
-        id: "credito-risco",
-        label: "Crédito e Risco",
-        icon: BookOpen,
+        id: "configuracoes",
+        label: "Configurações",
+        icon: Settings,
         subItems: [
-          { label: "SPC MAXI", path: "/verticais/credito-risco/spc-maxi" },
-          {
-            label: "SPC POSITIVO INTERMEDIÁRIO PJ",
-            path: "/verticais/credito-risco/spc-positivo-intermediario-pj",
-          },
-          // { label: "SPC Relatório Completo", path: "/catalogo/relatorio-1" },
+          { label: "Empresas", path: "/configuracoes/empresas" },
+          { label: "Operadores", path: "/configuracoes/operadores" },
+          { label: "Usuários", path: "/configuracoes/usuarios" },
+        ],
+      },
+      {
+        id: "operacoes",
+        label: "Operações",
+        icon: Settings,
+        subItems: [
+          { label: "Consultas", path: "/operacoes/list" },
+          { label: "Logs", path: "/operacoes/list" },
         ],
       },
       // {
@@ -133,7 +138,6 @@ const menuGroups: MenuGroup[] = [
   //       icon: Settings,
   //       subItems: [
   //         { label: "Empresas", path: "/configuracoes/empresas" },
-  //         { label: "Operadores", path: "/configuracoes/operadores" },
   //         { label: "Permissões", path: "/configuracoes/permissoes" },
   //       ],
   //     },

@@ -1,1 +1,1 @@
-export type { DocType } from "./docType";
+export {};
