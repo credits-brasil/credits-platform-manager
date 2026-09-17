@@ -232,6 +232,7 @@ export default function AdminsPage() {
   };
 
   const isSubmitting = createMutation.isPending || updateMutation.isPending;
+  const hasActionsColumn = filteredUsers.some((user) => user.status !== "DELETED");
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6">
@@ -278,26 +279,26 @@ export default function AdminsPage() {
                 <TableHead>Status</TableHead>
                 <TableHead>Primeiro acesso</TableHead>
                 <TableHead>Criada em</TableHead>
-                <TableHead className="text-right">Ações</TableHead>
+                {hasActionsColumn && <TableHead className="text-right">Ações</TableHead>}
               </TableRow>
             </TableHeader>
 
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-6 text-center text-sm text-gray-500">
+                  <TableCell colSpan={hasActionsColumn ? 7 : 6} className="py-6 text-center text-sm text-gray-500">
                     Carregando admins...
                   </TableCell>
                 </TableRow>
               ) : isError ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-6 text-center text-sm text-red-500">
+                  <TableCell colSpan={hasActionsColumn ? 7 : 6} className="py-6 text-center text-sm text-red-500">
                     Não foi possível carregar os admins.
                   </TableCell>
                 </TableRow>
               ) : filteredUsers.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-6 text-center text-sm text-gray-500">
+                  <TableCell colSpan={hasActionsColumn ? 7 : 6} className="py-6 text-center text-sm text-gray-500">
                     Nenhum admin encontrado.
                   </TableCell>
                 </TableRow>
@@ -330,25 +331,26 @@ export default function AdminsPage() {
                       </Badge>
                     </TableCell>
                     <TableCell>{formatDate(user.createdAt)}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => openEditForm(user)}
-                        >
-                          <Pencil size={15} />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          disabled={user.status === "DELETED"}
-                          onClick={() => setDeleteTarget(user)}
-                        >
-                          <Trash2 size={15} />
-                        </Button>
-                      </div>
-                    </TableCell>
+                    {user.status !== "DELETED" && (
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => openEditForm(user)}
+                          >
+                            <Pencil size={15} />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setDeleteTarget(user)}
+                          >
+                            <Trash2 size={15} />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))
               )}

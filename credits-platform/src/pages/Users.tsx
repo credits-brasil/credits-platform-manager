@@ -126,6 +126,15 @@ type OperatorFormState = {
 
 const generateRandomUserCode = () => String(Math.floor(10000000 + Math.random() * 90000000));
 
+const formatDateTime = (value?: string | null) => {
+  if (!value) return "-";
+
+  return new Date(value).toLocaleString("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+  });
+};
+
 const EMPTY_FORM_STATE: OperatorFormState = {
   user: "",
   name: "",
@@ -147,7 +156,7 @@ const ROLE_LABEL: Record<OperatorRole, string> = {
 
 const OPERATOR_STATUS_LABEL: Record<OperatorCompanyStatus, string> = {
   ACTIVE: "Ativo",
-  INACTIVE: "Excluído",
+  INACTIVE: "Inativo",
   DELETED: "Excluído",
 };
 
@@ -517,6 +526,11 @@ export default function UsersPage() {
       return;
     }
 
+    if (operator.status === "DELETED") {
+      toast({ title: "Usuário já foi excluído e não pode ser alterado.", variant: "destructive" });
+      return;
+    }
+
     const nextStatus: OperatorCompanyStatus = operator.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
 
     fetch(`${API_URL}/api/company/${operator.companyId}/users/${operator.id}/status`, {
@@ -703,7 +717,10 @@ export default function UsersPage() {
                   <TableHead>Perfil</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Primeiro acesso</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
+                  <TableHead>Criado em</TableHead>
+                  {filteredOperators.some((operator) => operator.status !== "DELETED") && (
+                    <TableHead className="text-right">Ações</TableHead>
+                  )}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -722,7 +739,7 @@ export default function UsersPage() {
                     status: "ACTIVE" as const,
                   };
 
-                  const displayStatus = operator.status === "INACTIVE" ? "DELETED" : operator.status;
+                  const displayStatus = operator.status;
 
                   return (
                     <TableRow key={operator.id}>
@@ -740,7 +757,7 @@ export default function UsersPage() {
                           <Switch
                             checked={operator.status === "ACTIVE"}
                             onCheckedChange={() => toggleOperatorStatus(operator)}
-                            disabled={!canManageCompany(operator.companyId) || updateMutation.isPending}
+                            disabled={operator.status === "DELETED" || !canManageCompany(operator.companyId) || updateMutation.isPending}
                             aria-label={`Alternar status do operador ${itemOperator.name}`}
                           />
                         </div>
@@ -750,26 +767,29 @@ export default function UsersPage() {
                           {operator.operator.firstAccess ? "Pendente" : "Concluído"}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => openEditDrawer(operator)}
-                            disabled={!canManageCompany(operator.companyId)}
-                          >
-                            <Pencil size={15} />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setDeleteTarget(operator)}
-                            disabled={!canManageCompany(operator.companyId)}
-                          >
-                            <Trash2 size={15} />
-                          </Button>
-                        </div>
-                      </TableCell>
+                      <TableCell>{formatDateTime(operator.operator.createdAt)}</TableCell>
+                      {operator.status !== "DELETED" && (
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => openEditDrawer(operator)}
+                              disabled={!canManageCompany(operator.companyId)}
+                            >
+                              <Pencil size={15} />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setDeleteTarget(operator)}
+                              disabled={!canManageCompany(operator.companyId)}
+                            >
+                              <Trash2 size={15} />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      )}
                     </TableRow>
                   );
                 })}
@@ -912,9 +932,9 @@ export default function UsersPage() {
       <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Inativar usuário</AlertDialogTitle>
+            <AlertDialogTitle>Excluir usuário</AlertDialogTitle>
             <AlertDialogDescription>
-              Essa ação vai deixar o usuário inativo para esta empresa, sem remover o cadastro global.
+              Essa ação vai marcar o vínculo do usuário como DELETED para esta empresa, sem remover o cadastro global.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

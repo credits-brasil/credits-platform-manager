@@ -250,6 +250,7 @@ export default function CompaniesPage() {
   };
 
   const isSubmitting = createMutation.isPending || updateMutation.isPending;
+  const hasActionsColumn = filteredCompanies.some((company) => company.status !== "DELETED");
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6">
@@ -296,26 +297,26 @@ export default function CompaniesPage() {
                 <TableHead>Limite diário</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Criada em</TableHead>
-                <TableHead className="text-right">Ações</TableHead>
+                {hasActionsColumn && <TableHead className="text-right">Ações</TableHead>}
               </TableRow>
             </TableHeader>
 
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-6 text-center text-sm text-gray-500">
+                  <TableCell colSpan={hasActionsColumn ? 7 : 6} className="py-6 text-center text-sm text-gray-500">
                     Carregando empresas...
                   </TableCell>
                 </TableRow>
               ) : isError ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-6 text-center text-sm text-red-500">
+                  <TableCell colSpan={hasActionsColumn ? 7 : 6} className="py-6 text-center text-sm text-red-500">
                     Não foi possível carregar as empresas.
                   </TableCell>
                 </TableRow>
               ) : filteredCompanies.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-6 text-center text-sm text-gray-500">
+                  <TableCell colSpan={hasActionsColumn ? 7 : 6} className="py-6 text-center text-sm text-gray-500">
                     Nenhuma empresa encontrada.
                   </TableCell>
                 </TableRow>
@@ -344,25 +345,26 @@ export default function CompaniesPage() {
                       </div>
                     </TableCell>
                     <TableCell>{formatDate(company.createdAt)}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => openEditForm(company)}
-                        >
-                          <Pencil size={15} />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          disabled={company.status === "DELETED"}
-                          onClick={() => setDeleteTarget(company)}
-                        >
-                          <Trash2 size={15} />
-                        </Button>
-                      </div>
-                    </TableCell>
+                    {company.status !== "DELETED" && (
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => openEditForm(company)}
+                          >
+                            <Pencil size={15} />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setDeleteTarget(company)}
+                          >
+                            <Trash2 size={15} />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))
               )}

@@ -25,7 +25,8 @@ export type AdminUpdatePayload = Partial<AdminCreatePayload> & {
 const API_URL = import.meta.env.VITE_API_URL;
 
 async function handleResponse<T>(response: Response): Promise<T> {
-  const data = await response.json();
+  const rawText = await response.text();
+  const data = rawText ? JSON.parse(rawText) : ({} as T);
 
   if (!response.ok) {
     throw new Error(data?.message || "Não foi possível completar a operação.");
