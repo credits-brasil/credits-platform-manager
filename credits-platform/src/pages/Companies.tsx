@@ -167,8 +167,17 @@ export default function CompaniesPage() {
 
   const deleteMutation = useMutation({
     mutationFn: deleteCompany,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["companies"] });
+    onSuccess: (_, id) => {
+      queryClient.setQueriesData({ queryKey: ["companies"] }, (oldData: Company[] | undefined) => {
+        if (!oldData) {
+          return oldData;
+        }
+
+        return oldData.map((company) =>
+          company.id === id ? { ...company, status: "DELETED" } : company,
+        );
+      });
+
       toast({ title: "Empresa excluída com sucesso." });
       setDeleteTarget(null);
     },

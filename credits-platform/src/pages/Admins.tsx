@@ -143,8 +143,17 @@ export default function AdminsPage() {
 
   const deleteMutation = useMutation({
     mutationFn: deleteAdmin,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admins"] });
+    onSuccess: (_, id) => {
+      queryClient.setQueriesData({ queryKey: ["admins"] }, (oldData: Admin[] | undefined) => {
+        if (!oldData) {
+          return oldData;
+        }
+
+        return oldData.map((admin) =>
+          admin.id === id ? { ...admin, status: "DELETED" } : admin,
+        );
+      });
+
       toast({ title: "Admin excluído com sucesso." });
       setDeleteTarget(null);
     },
