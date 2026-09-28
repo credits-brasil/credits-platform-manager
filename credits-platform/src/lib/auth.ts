@@ -8,10 +8,31 @@ export interface AuthAdmin {
 
 export interface AuthSession {
   accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
   admin: AuthAdmin;
 }
 
 const API_URL = import.meta.env.VITE_API_URL
+
+export async function refreshAdminSession(refreshToken: string) {
+  const response = await fetch(`${API_URL}/api/auth/admin/refresh`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ refreshToken }),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data?.message || "Sessão expirada.");
+  }
+
+  return data.tokens as {
+    accessToken: string;
+    refreshToken: string;
+    expiresIn: number;
+  };
+}
 
 export async function loginRequest(
   email: string,

@@ -10,11 +10,13 @@ import CompaniesPage from "@/pages/Companies";
 import UsersPage from "@/pages/Users";
 import AdminsPage from "@/pages/Admins";
 import NotFound from "@/pages/not-found";
+import OrdersPage from "@/pages/Orders";
 import { loginRequest } from "@/lib/auth";
 
 const queryClient = new QueryClient();
 const AUTH_STORAGE_KEY = "credits-platform-authenticated";
 const AUTH_TOKEN_KEY = "credits-platform-access-token";
+const AUTH_REFRESH_TOKEN_KEY = "credits-platform-refresh-token";
 const AUTH_USER_KEY = "credits-platform-auth-user";
 const HOME_ROUTE = "/home";
 
@@ -77,6 +79,7 @@ function Router({
         <Route path="/configuracoes/empresas" component={CompaniesPage} />
         <Route path="/configuracoes/users" component={UsersPage} />
         <Route path="/configuracoes/admins" component={AdminsPage} />
+        <Route path="/operacoes/list" component={OrdersPage} />
         <Route component={NotFound} />
       </Switch>
     </Layout>
@@ -95,6 +98,7 @@ function App() {
 
       localStorage.setItem(AUTH_STORAGE_KEY, "true");
       localStorage.setItem(AUTH_TOKEN_KEY, session.accessToken);
+      localStorage.setItem(AUTH_REFRESH_TOKEN_KEY, session.refreshToken);
       localStorage.setItem(AUTH_USER_KEY, JSON.stringify(session.admin));
       setIsAuthenticated(true);
       return null;
@@ -106,6 +110,7 @@ function App() {
   const handleLogout = () => {
     localStorage.removeItem(AUTH_STORAGE_KEY);
     localStorage.removeItem(AUTH_TOKEN_KEY);
+    localStorage.removeItem(AUTH_REFRESH_TOKEN_KEY);
     localStorage.removeItem(AUTH_USER_KEY);
     setIsAuthenticated(false);
   };
