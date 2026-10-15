@@ -35,19 +35,30 @@ const TOKEN_KEY = "credits-platform-access-token";
 const REFRESH_TOKEN_KEY = "credits-platform-refresh-token";
 
 type OrderStatus = "PROCESS" | "SUCCESS" | "FAILED";
+type OrderInputDetail = {
+  code: string;
+  label: string;
+};
+
 type Order = {
   id: string;
   user_name: string;
   company_name: string;
+  protocol?: string | null;
   typeDocument: "CPF" | "CNPJ";
   document: string;
   duration: number;
   inputs: Record<string, unknown>;
+  inputCodes?: string[];
+  inputDetails?: OrderInputDetail[];
   origin: string;
   ip: string;
   host: string;
   status: OrderStatus;
   createdAt: string;
+  xml?: string | null;
+  result?: unknown | null;
+  json?: unknown | null;
 };
 
 const statusLabels: Record<OrderStatus, string> = {
@@ -85,6 +96,7 @@ export default function OrdersPage() {
   const [status, setStatus] = useState<"ALL" | OrderStatus>("ALL");
   const [page, setPage] = useState(1);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [inputModalOrder, setInputModalOrder] = useState<Order | null>(null);
 
   const query = useQuery({
     queryKey: ["orders", page, search, status],
@@ -119,6 +131,29 @@ export default function OrdersPage() {
   const data = query.data;
   const orders = data?.orders ?? [];
   const totalPages = data?.pagination.totalPages ?? 1;
+  const hasSpcSnapshot = (order: Order) => Boolean(order.xml || order.result !== null || order.json !== null);
+  const hasSnapshot = Boolean(selectedOrder && hasSpcSnapshot(selectedOrder));
+  const selectedInputRows = inputModalOrder
+    ? (inputModalOrder.inputDetails?.length
+        ? inputModalOrder.inputDetails.map((detail) => ({
+            id: detail.code,
+            code: detail.code,
+            label: detail.label,
+            typeDocument: inputModalOrder.typeDocument,
+            active: true,
+            createdAt: inputModalOrder.createdAt,
+            updatedAt: inputModalOrder.createdAt,
+          }))
+        : (inputModalOrder.inputCodes ?? []).map((code) => ({
+            id: code,
+            code,
+            label: `Código ${code}`,
+            typeDocument: inputModalOrder.typeDocument,
+            active: true,
+            createdAt: inputModalOrder.createdAt,
+            updatedAt: inputModalOrder.createdAt,
+          })))
+    : [];
 
   return (
     <div className="space-y-5">
@@ -137,7 +172,7 @@ export default function OrdersPage() {
               <Input
                 value={search}
                 onChange={(event) => { setSearch(event.target.value); setPage(1); }}
-                placeholder="Buscar usuário, empresa ou documento"
+                placeholder="Buscar usuário, empresa, documento ou protocolo"
                 className="pl-9"
               />
             </div>
@@ -168,6 +203,7 @@ export default function OrdersPage() {
                     <TableHead>Usuário</TableHead>
                     <TableHead>Empresa</TableHead>
                     <TableHead>Documento</TableHead>
+                    <TableHead>Protocolo</TableHead>
                     <TableHead>Duração</TableHead>
                     <TableHead>IP</TableHead>
                     <TableHead>Host</TableHead>
@@ -183,6 +219,7 @@ export default function OrdersPage() {
                       <TableCell className="font-medium">{order.user_name}</TableCell>
                       <TableCell>{order.company_name}</TableCell>
                       <TableCell>{formatDocument(order.document, order.typeDocument)}</TableCell>
+                      <TableCell className="font-medium text-slate-700">{order.protocol || "-"}</TableCell>
                       <TableCell>{order.duration} ms</TableCell>
                       <TableCell className="whitespace-nowrap text-xs text-slate-500">{order.ip || "-"}</TableCell>
                       <TableCell className="whitespace-nowrap text-xs text-slate-500">{order.host || "-"}</TableCell>
@@ -193,9 +230,22 @@ export default function OrdersPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="sm" onClick={() => setSelectedOrder(order)}>
-                          Ver inputs
-                        </Button>
+                        <div className="flex justify-end gap-2">
+                          {(order.inputDetails?.length || order.inputCodes?.length) ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setInputModalOrder(order)}
+                            >
+                              Ver inputs
+                            </Button>
+                          ) : null}
+                          {hasSpcSnapshot(order) ? (
+                            <Button variant="ghost" size="sm" onClick={() => setSelectedOrder(order)}>
+                              Ver SPC
+                            </Button>
+                          ) : null}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -214,34 +264,101 @@ export default function OrdersPage() {
         </CardContent>
       </Card>
 
+      <Drawer open={Boolean(inputModalOrder)} onOpenChange={(open) => !open && setInputModalOrder(null)}>
+        <DrawerContent className="inset-y-0 right-0 bottom-auto left-auto m-0 h-full w-full max-w-[42rem] rounded-none border-l border-slate-200 bg-white text-slate-900 shadow-2xl">
+          <DrawerHeader className="border-b border-slate-200 bg-slate-50 px-5 py-4 text-slate-900">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <DrawerTitle className="text-lg font-semibold text-slate-900">Inputs utilizados</DrawerTitle>
+                <DrawerDescription className="mt-1 text-sm text-slate-600">
+                  {inputModalOrder ? `${inputModalOrder.user_name} · ${formatDate(inputModalOrder.createdAt)}` : "Detalhes dos inputs."}
+                </DrawerDescription>
+              </div>
+            </div>
+          </DrawerHeader>
+
+          <div className="max-h-[calc(100vh-90px)] overflow-auto px-5 py-4">
+            <div className="overflow-hidden rounded-md border border-slate-200">
+              <table className="min-w-full border-collapse text-left text-sm">
+                <thead className="bg-slate-100 text-slate-700">
+                  <tr>
+                    <th className="border-b border-slate-200 px-3 py-2 font-semibold">Código</th>
+                    <th className="border-b border-slate-200 px-3 py-2 font-semibold">Label</th>
+                    <th className="border-b border-slate-200 px-3 py-2 font-semibold">Tipo</th>
+                    <th className="border-b border-slate-200 px-3 py-2 font-semibold">Ativo</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedInputRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="px-3 py-6 text-center text-slate-500">Nenhum input disponível para esta consulta.</td>
+                    </tr>
+                  ) : (
+                    selectedInputRows.map((input) => (
+                      <tr key={`${inputModalOrder?.id ?? "input"}-${input.id}`} className="odd:bg-white even:bg-slate-50">
+                        <td className="border-b border-slate-200 px-3 py-2 font-medium text-slate-900">{input.code}</td>
+                        <td className="border-b border-slate-200 px-3 py-2 text-slate-700">{input.label}</td>
+                        <td className="border-b border-slate-200 px-3 py-2 text-slate-600">{input.typeDocument}</td>
+                        <td className="border-b border-slate-200 px-3 py-2">
+                          <span className={`rounded-full px-2 py-1 text-xs font-medium ${input.active ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>
+                            {input.active ? "Ativo" : "Inativo"}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </DrawerContent>
+      </Drawer>
+
       <Drawer open={Boolean(selectedOrder)} onOpenChange={(open) => !open && setSelectedOrder(null)}>
-        <DrawerContent className="inset-y-0 right-0 bottom-auto left-auto m-0 h-full w-full max-w-xl rounded-none border-l bg-background shadow-lg">
-          <DrawerHeader>
-            <DrawerTitle>Inputs da consulta</DrawerTitle>
-            <DrawerDescription>
-              {selectedOrder
-                ? `${selectedOrder.user_name} · ${formatDate(selectedOrder.createdAt)}`
-                : "Detalhes enviados para a consulta."}
-            </DrawerDescription>
+        <DrawerContent className="inset-y-0 right-0 bottom-auto left-auto m-0 h-full w-full max-w-[80vw] rounded-none border-l border-slate-200 bg-white text-slate-900 shadow-2xl">
+          <DrawerHeader className="border-b border-slate-200 bg-slate-50 px-5 py-4 text-slate-900">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <DrawerTitle className="text-lg font-semibold text-slate-900">Detalhes da consulta</DrawerTitle>
+                <DrawerDescription className="mt-1 text-sm text-slate-600">
+                  {selectedOrder ? `${selectedOrder.user_name} · ${formatDate(selectedOrder.createdAt)}` : "Detalhes enviados para a consulta."}
+                </DrawerDescription>
+              </div>
+            </div>
           </DrawerHeader>
 
           {selectedOrder && (
-            <div className="flex-1 overflow-y-auto px-4 pb-6">
-              <div className="mb-4 grid grid-cols-2 gap-3 rounded-lg border bg-slate-50 p-3 text-sm">
-                <div>
-                  <p className="text-xs text-slate-500">Documento</p>
-                  <p className="font-medium">{formatDocument(selectedOrder.document, selectedOrder.typeDocument)}</p>
+            <div className="flex-1 overflow-y-auto bg-slate-50 px-4 py-4">
+              <div className="mb-3 grid grid-cols-2 items-end gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm">
+                <div className="text-center text-2xl font-bold tracking-tight text-slate-800 md:text-3xl">
+                  XML
                 </div>
-                <div>
-                  <p className="text-xs text-slate-500">Duração</p>
-                  <p className="font-medium">{selectedOrder.duration} ms</p>
+                <div className="text-center text-2xl font-bold tracking-tight text-slate-700 md:text-3xl">
+                  JSON
                 </div>
               </div>
 
-              <h2 className="mb-2 text-sm font-semibold text-slate-800">Payload enviado</h2>
-              <pre className="overflow-x-auto rounded-lg border bg-slate-950 p-4 text-xs leading-5 text-slate-100">
-                {JSON.stringify(selectedOrder.inputs ?? {}, null, 2)}
-              </pre>
+              <div className="mb-4 flex items-center justify-center text-xl font-medium text-slate-400">vs.</div>
+
+              <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+                  <div className="border-b border-slate-200 bg-slate-50 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+                    XML do SPC
+                  </div>
+                  <pre className="max-h-[70vh] overflow-auto bg-white p-3 text-[11px] leading-5 text-slate-800 whitespace-pre-wrap font-mono">
+                    {selectedOrder.xml ?? "Nenhum XML salvo para esta consulta."}
+                  </pre>
+                </div>
+
+                <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+                  <div className="border-b border-slate-200 bg-slate-50 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+                    Result
+                  </div>
+                  <pre className="max-h-[70vh] overflow-auto bg-white p-3 text-[11px] leading-5 text-slate-800 whitespace-pre-wrap font-mono">
+                    {JSON.stringify(selectedOrder.result ?? {}, null, 2)}
+                  </pre>
+                </div>
+              </div>
             </div>
           )}
         </DrawerContent>
