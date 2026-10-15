@@ -370,6 +370,7 @@ export default function UsersPage() {
   const [editingOperator, setEditingOperator] = useState<CompanyOperator | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<CompanyOperator | null>(null);
   const [search, setSearch] = useState("");
+  const [companyFilter, setCompanyFilter] = useState<string>("ALL");
   const [selectedCompanyIds, setSelectedCompanyIds] = useState<string[]>([]);
   const [formState, setFormState] = useState<OperatorFormState>(EMPTY_FORM_STATE);
 
@@ -559,13 +560,22 @@ export default function UsersPage() {
     const visibleOperators = (normalizedOperators ?? []).filter(
       (operator: any) => (operator?.operator?.id ?? "") !== loggedOperatorId,
     );
+
+    const companyFilteredOperators =
+      companyFilter === "ALL"
+        ? visibleOperators
+        : visibleOperators.filter(
+            (operator) =>
+              operator.companyId === companyFilter || operator.company?.id === companyFilter,
+          );
+
     const term = search.trim().toLowerCase();
 
     if (!term) {
-      return visibleOperators;
+      return companyFilteredOperators;
     }
 
-    return visibleOperators.filter((operator) => {
+    return companyFilteredOperators.filter((operator) => {
       const values = [
         operator?.operator?.name ?? "",
         operator?.operator?.cpf ?? "",
@@ -574,7 +584,7 @@ export default function UsersPage() {
       ];
       return values.some((value) => value.toLowerCase().includes(term));
     });
-  }, [normalizedOperators, loggedOperatorId, search]);
+  }, [normalizedOperators, loggedOperatorId, search, companyFilter]);
 
   const openCreateDrawer = () => {
     setEditingOperator(null);
@@ -679,15 +689,31 @@ export default function UsersPage() {
         <CardHeader className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <CardTitle className="text-base">Todos os usuários</CardTitle>
 
-          <div className="relative w-full max-w-sm">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Buscar por nome, CPF ou e-mail"
-              className="w-full rounded-lg border border-gray-200 py-2 pl-9 pr-3 text-sm text-gray-800 placeholder-gray-400 outline-none transition focus:border-gray-300"
-            />
+          <div className="flex w-full max-w-xl flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="relative w-full max-w-sm">
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Buscar por nome, CPF ou e-mail"
+                className="w-full rounded-lg border border-gray-200 py-2 pl-9 pr-3 text-sm text-gray-800 placeholder-gray-400 outline-none transition focus:border-gray-300"
+              />
+            </div>
+
+            <Select value={companyFilter} onValueChange={setCompanyFilter}>
+              <SelectTrigger className="w-full sm:w-64">
+                <SelectValue placeholder="Todas as empresas" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">Todas as empresas</SelectItem>
+                {companyOptions.map((company) => (
+                  <SelectItem key={company.id} value={company.id}>
+                    {company.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </CardHeader>
 

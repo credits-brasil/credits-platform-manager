@@ -69,7 +69,7 @@ const menuItems: MenuItem[] = [
       },
       {
         label: "Logs",
-        path: "/operacoes/list",
+        path: "/operacoes/logs",
         icon: ScrollText,
       },
     ],

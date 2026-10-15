@@ -11,6 +11,7 @@ import UsersPage from "@/pages/Users";
 import AdminsPage from "@/pages/Admins";
 import NotFound from "@/pages/not-found";
 import OrdersPage from "@/pages/Orders";
+import LogsPage from "@/pages/Logs";
 import { loginRequest } from "@/lib/auth";
 
 const queryClient = new QueryClient();
@@ -80,6 +81,7 @@ function Router({
         <Route path="/configuracoes/users" component={UsersPage} />
         <Route path="/configuracoes/admins" component={AdminsPage} />
         <Route path="/operacoes/list" component={OrdersPage} />
+        <Route path="/operacoes/logs" component={LogsPage} />
         <Route component={NotFound} />
       </Switch>
     </Layout>
