@@ -55,6 +55,7 @@ type Order = {
   ip: string;
   host: string;
   status: OrderStatus;
+  error?: string | null;
   createdAt: string;
   xml?: string | null;
   result?: unknown | null;
@@ -209,6 +210,7 @@ export default function OrdersPage() {
                     <TableHead>Host</TableHead>
                     <TableHead>Origem</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Erro</TableHead>
                     <TableHead className="text-right">Detalhes</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -228,6 +230,15 @@ export default function OrdersPage() {
                         <Badge variant={order.status === "SUCCESS" ? "default" : order.status === "FAILED" ? "destructive" : "secondary"} className="gap-1">
                           <StatusIcon status={order.status} />{statusLabels[order.status]}
                         </Badge>
+                      </TableCell>
+                      <TableCell className="max-w-[240px] text-xs text-slate-600">
+                        {order.status === "FAILED" ? (
+                          <span title={order.error ?? "Erro desconhecido."} className="line-clamp-2 break-words text-red-700">
+                            {order.error || "Erro desconhecido."}
+                          </span>
+                        ) : (
+                          "-"
+                        )}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
