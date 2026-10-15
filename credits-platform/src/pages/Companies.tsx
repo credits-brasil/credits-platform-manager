@@ -437,6 +437,7 @@ export default function CompaniesPage() {
                   }
                   placeholder="Usuário SPC"
                   autoComplete="username"
+                  required={!editingCompany}
                   className="w-full"
                 />
               </div>
@@ -457,6 +458,7 @@ export default function CompaniesPage() {
                     }
                     placeholder="Senha do Web Service"
                     autoComplete="current-password"
+                    required={!editingCompany}
                   />
                   <button
                     type="button"
