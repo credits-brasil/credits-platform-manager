@@ -29,6 +29,7 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { refreshAdminSession } from "@/lib/auth";
+import { listCompanies } from "@/lib/company";
 
 const API_URL = import.meta.env.VITE_API_URL;
 const TOKEN_KEY = "credits-platform-access-token";
@@ -95,16 +96,23 @@ function StatusIcon({ status }: { status: OrderStatus }) {
 export default function OrdersPage() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<"ALL" | OrderStatus>("ALL");
+  const [companyFilter, setCompanyFilter] = useState("ALL");
   const [page, setPage] = useState(1);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [inputModalOrder, setInputModalOrder] = useState<Order | null>(null);
 
+  const { data: companyOptions = [] } = useQuery({
+    queryKey: ["companies"],
+    queryFn: () => listCompanies(),
+  });
+
   const query = useQuery({
-    queryKey: ["orders", page, search, status],
+    queryKey: ["orders", page, search, status, companyFilter],
     queryFn: async () => {
       const params = new URLSearchParams({ page: String(page), pageSize: "20" });
       if (search.trim()) params.set("search", search.trim());
       if (status !== "ALL") params.set("status", status);
+      if (companyFilter !== "ALL") params.set("companyId", companyFilter);
 
       const requestOrders = (accessToken: string) => fetch(`${API_URL}/api/orders?${params}`, {
         headers: { Authorization: `Bearer ${accessToken}` },
@@ -184,6 +192,19 @@ export default function OrdersPage() {
                 <SelectItem value="PROCESS">Processando</SelectItem>
                 <SelectItem value="SUCCESS">Sucesso</SelectItem>
                 <SelectItem value="FAILED">Falhou</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={companyFilter} onValueChange={(value) => { setCompanyFilter(value); setPage(1); }}>
+              <SelectTrigger className="w-full sm:w-64">
+                <SelectValue placeholder="Todas as empresas" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">Todas as empresas</SelectItem>
+                {companyOptions.map((company) => (
+                  <SelectItem key={company.id} value={company.id}>
+                    {company.name}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
