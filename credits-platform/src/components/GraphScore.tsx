@@ -131,11 +131,11 @@ export function GraphScoreComponent({
             style={{
               backgroundColor: secondaryBadge.style?.backgroundColor ?? "#F8FAFC",
               borderColor: secondaryBadge.style?.borderColor ?? "#E2E8F0",
-              color: secondaryBadge.style?.color ?? "#243871",
+              color: secondaryBadge.style?.color ?? "hsl(var(--primary))",
             }}
           >
             {secondaryBadge.label}
-            <strong className="text-[11px]" style={{ color: secondaryBadge.style?.color ?? "#243871" }}>
+            <strong className="text-[11px]" style={{ color: secondaryBadge.style?.color ?? "hsl(var(--primary))" }}>
               {secondaryBadge.value}
             </strong>
           </span>
