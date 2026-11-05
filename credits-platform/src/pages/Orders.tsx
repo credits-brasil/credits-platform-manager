@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { CheckCircle2, ChevronLeft, ChevronRight, Clock3, Search, XCircle } from "lucide-react";
+import { CheckCircle2, ChevronLeft, ChevronRight, Clock3, FileSpreadsheet, Loader2, Search, XCircle } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,8 @@ import {
 } from "@/components/ui/drawer";
 import { refreshAdminSession } from "@/lib/auth";
 import { listCompanies } from "@/lib/company";
+import { exportOrdersToXlsx, type OrderExportInput } from "@/lib/ordersExport";
+import { useToast } from "@/hooks/use-toast";
 
 const API_URL = import.meta.env.VITE_API_URL;
 const TOKEN_KEY = "credits-platform-access-token";
@@ -44,9 +46,11 @@ type OrderInputDetail = {
 type Order = {
   id: string;
   user_name: string;
+  company_document: string;
   company_name: string;
   protocol?: string | null;
   typeDocument: "CPF" | "CNPJ";
+  product_name: string;
   document: string;
   duration: number;
   inputs: Record<string, unknown>;
@@ -56,6 +60,7 @@ type Order = {
   ip: string;
   host: string;
   status: OrderStatus;
+  error?: string | null;
   createdAt: string;
   xml?: string | null;
   result?: unknown | null;
@@ -86,9 +91,92 @@ function formatDocument(value: string, type: Order["typeDocument"]) {
   return value;
 }
 
+function getOrderInputs(order: Order): OrderExportInput[] {
+  if (order.inputDetails?.length) {
+    return order.inputDetails.map((detail) => ({
+      code: detail.code,
+      label: detail.label,
+      typeDocument: order.typeDocument,
+      active: true,
+    }));
+  }
+  return (order.inputCodes ?? []).map((code) => ({
+    code,
+    label: `Código ${code}`,
+    typeDocument: order.typeDocument,
+    active: true,
+  }));
+}
+
+/**
+ * Colunas da tabela principal; o mesmo array alimenta o cabeçalho e a exportação.
+ * `exportable: false` mantém a coluna na tela, mas a omite da planilha.
+ */
+const ORDER_COLUMNS: { header: string; exportValue: (order: Order) => string; exportable?: false }[] = [
+  { header: "ID Empresa", exportValue: (order) => formatDocument(order.company_document, "CNPJ") },
+  { header: "Empresa", exportValue: (order) => order.company_name },
+  { header: "Documento", exportValue: (order) => formatDocument(order.document, order.typeDocument) },
+  { header: "Usuário", exportValue: (order) => order.user_name },
+  { header: "Data", exportValue: (order) => formatDate(order.createdAt) },
+  { header: "Tipo", exportValue: () => "Produto" },
+  { header: "Produto", exportValue: (order) => order.product_name },
+  { header: "Protocolo", exportValue: (order) => order.protocol || "-" },
+  { header: "Duração", exportValue: (order) => `${order.duration} ms`, exportable: false },
+  { header: "IP", exportValue: (order) => order.ip || "-", exportable: false },
+  { header: "Host", exportValue: (order) => order.host || "-", exportable: false },
+  { header: "Origem", exportValue: (order) => order.origin || "-" },
+  { header: "Status", exportValue: (order) => statusLabels[order.status] },
+  { header: "Erro", exportValue: (order) => (order.status === "FAILED" ? order.error || "Erro desconhecido." : "-") },
+];
+
+const EXPORT_COLUMNS = ORDER_COLUMNS.filter((column) => column.exportable !== false);
+
+type OrdersFilters = { search: string; status: "ALL" | OrderStatus; companyFilter: string };
+type OrdersResponse = { orders: Order[]; pagination: { total: number; totalPages: number } };
+
+async function fetchOrdersPage(page: number, pageSize: number, filters: OrdersFilters): Promise<OrdersResponse> {
+  const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+  if (filters.search.trim()) params.set("search", filters.search.trim());
+  if (filters.status !== "ALL") params.set("status", filters.status);
+  if (filters.companyFilter !== "ALL") params.set("companyId", filters.companyFilter);
+
+  const requestOrders = (accessToken: string) => fetch(`${API_URL}/api/orders?${params}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  let response = await requestOrders(localStorage.getItem(TOKEN_KEY) ?? "");
+  if (response.status === 401) {
+    const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
+    if (!refreshToken) {
+      throw new Error("Sessão expirada. Faça login novamente.");
+    }
+
+    const tokens = await refreshAdminSession(refreshToken);
+    localStorage.setItem(TOKEN_KEY, tokens.accessToken);
+    localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
+    response = await requestOrders(tokens.accessToken);
+  }
+
+  const data = await response.json();
+  if (!response.ok) throw new Error(data?.message || "Não foi possível carregar as consultas.");
+  return data as OrdersResponse;
+}
+
+/** Busca todas as páginas que correspondem aos filtros atuais. */
+async function fetchAllOrders(filters: OrdersFilters): Promise<Order[]> {
+  const pageSize = 100;
+  const first = await fetchOrdersPage(1, pageSize, filters);
+  const all = [...first.orders];
+  for (let page = 2; page <= first.pagination.totalPages; page++) {
+    const next = await fetchOrdersPage(page, pageSize, filters);
+    all.push(...next.orders);
+  }
+  return all;
+}
+
 function StatusIcon({ status }: { status: OrderStatus }) {
   if (status === "SUCCESS") return <CheckCircle2 size={15} className="text-emerald-600" />;
-  if (status === "FAILED") return <XCircle size={15} className="text-red-600" />;
+  if (status === "FAILED") return <XCircle size={15} className="text-red-300" />;
   return <Clock3 size={15} className="text-amber-600" />;
 }
 
@@ -99,6 +187,8 @@ export default function OrdersPage() {
   const [page, setPage] = useState(1);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [inputModalOrder, setInputModalOrder] = useState<Order | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
+  const { toast } = useToast();
 
   const { data: companyOptions = [] } = useQuery({
     queryKey: ["companies"],
@@ -107,33 +197,7 @@ export default function OrdersPage() {
 
   const query = useQuery({
     queryKey: ["orders", page, search, status, companyFilter],
-    queryFn: async () => {
-      const params = new URLSearchParams({ page: String(page), pageSize: "20" });
-      if (search.trim()) params.set("search", search.trim());
-      if (status !== "ALL") params.set("status", status);
-      if (companyFilter !== "ALL") params.set("companyId", companyFilter);
-
-      const requestOrders = (accessToken: string) => fetch(`${API_URL}/api/orders?${params}`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-
-      let response = await requestOrders(localStorage.getItem(TOKEN_KEY) ?? "");
-      if (response.status === 401) {
-        const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
-        if (!refreshToken) {
-          throw new Error("Sessão expirada. Faça login novamente.");
-        }
-
-        const tokens = await refreshAdminSession(refreshToken);
-        localStorage.setItem(TOKEN_KEY, tokens.accessToken);
-        localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
-        response = await requestOrders(tokens.accessToken);
-      }
-
-      const data = await response.json();
-      if (!response.ok) throw new Error(data?.message || "Não foi possível carregar as consultas.");
-      return data as { orders: Order[]; pagination: { total: number; totalPages: number } };
-    },
+    queryFn: () => fetchOrdersPage(page, 20, { search, status, companyFilter }),
   });
 
   const data = query.data;
@@ -141,27 +205,32 @@ export default function OrdersPage() {
   const totalPages = data?.pagination.totalPages ?? 1;
   const hasSpcSnapshot = (order: Order) => Boolean(order.xml || order.result !== null || order.json !== null);
   const hasSnapshot = Boolean(selectedOrder && hasSpcSnapshot(selectedOrder));
-  const selectedInputRows = inputModalOrder
-    ? (inputModalOrder.inputDetails?.length
-        ? inputModalOrder.inputDetails.map((detail) => ({
-            id: detail.code,
-            code: detail.code,
-            label: detail.label,
-            typeDocument: inputModalOrder.typeDocument,
-            active: true,
-            createdAt: inputModalOrder.createdAt,
-            updatedAt: inputModalOrder.createdAt,
-          }))
-        : (inputModalOrder.inputCodes ?? []).map((code) => ({
-            id: code,
-            code,
-            label: `Código ${code}`,
-            typeDocument: inputModalOrder.typeDocument,
-            active: true,
-            createdAt: inputModalOrder.createdAt,
-            updatedAt: inputModalOrder.createdAt,
-          })))
-    : [];
+  const selectedInputRows = inputModalOrder ? getOrderInputs(inputModalOrder) : [];
+
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      const allOrders = await fetchAllOrders({ search, status, companyFilter });
+      const timestamp = new Date().toISOString().slice(0, 16).replace("T", "_").replace(":", "-");
+      await exportOrdersToXlsx({
+        sheetName: "Consultas",
+        title: "Histórico de consultas",
+        columns: EXPORT_COLUMNS.map((column) => column.header),
+        rows: allOrders.map((order) => ({
+          cells: EXPORT_COLUMNS.map((column) => column.exportValue(order)),
+          inputs: getOrderInputs(order),
+        })),
+        fileName: `consultas_${timestamp}.xlsx`,
+      });
+    } catch (error) {
+      toast({
+        title: error instanceof Error ? error.message : "Não foi possível exportar as consultas.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   return (
     <div className="space-y-5">
@@ -206,6 +275,14 @@ export default function OrdersPage() {
                 ))}
               </SelectContent>
             </Select>
+            <Button
+              onClick={handleExport}
+              disabled={isExporting || !data?.pagination.total}
+              className="gap-2 border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700"
+            >
+              {isExporting ? <Loader2 size={16} className="animate-spin" /> : <FileSpreadsheet size={16} />}
+              {isExporting ? "Exportando..." : "Exportar XLS"}
+            </Button>
           </div>
         </CardHeader>
         <CardContent>
@@ -220,35 +297,40 @@ export default function OrdersPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Data</TableHead>
-                    <TableHead>Usuário</TableHead>
-                    <TableHead>Empresa</TableHead>
-                    <TableHead>Documento</TableHead>
-                    <TableHead>Protocolo</TableHead>
-                    <TableHead>Duração</TableHead>
-                    <TableHead>IP</TableHead>
-                    <TableHead>Host</TableHead>
-                    <TableHead>Origem</TableHead>
-                    <TableHead>Status</TableHead>
+                    {ORDER_COLUMNS.map((column) => (
+                      <TableHead key={column.header}>{column.header}</TableHead>
+                    ))}
                     <TableHead className="text-right">Detalhes</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {orders.map((order) => (
                     <TableRow key={order.id}>
-                      <TableCell className="whitespace-nowrap text-xs text-slate-500">{formatDate(order.createdAt)}</TableCell>
-                      <TableCell className="font-medium">{order.user_name}</TableCell>
+                      <TableCell className="whitespace-nowrap text-xs text-slate-500">{formatDocument(order.company_document, "CNPJ")}</TableCell>
                       <TableCell>{order.company_name}</TableCell>
                       <TableCell>{formatDocument(order.document, order.typeDocument)}</TableCell>
+                      <TableCell className="font-medium">{order.user_name}</TableCell>
+                      <TableCell className="whitespace-nowrap text-xs text-slate-500">{formatDate(order.createdAt)}</TableCell>
+                      <TableCell className="whitespace-nowrap text-xs text-slate-500">Produto</TableCell>
+                      <TableCell className="whitespace-nowrap text-xs text-slate-500">{order.product_name}</TableCell>
                       <TableCell className="font-medium text-slate-700">{order.protocol || "-"}</TableCell>
                       <TableCell>{order.duration} ms</TableCell>
                       <TableCell className="whitespace-nowrap text-xs text-slate-500">{order.ip || "-"}</TableCell>
                       <TableCell className="whitespace-nowrap text-xs text-slate-500">{order.host || "-"}</TableCell>
                       <TableCell>{order.origin || "-"}</TableCell>
                       <TableCell>
-                        <Badge variant={order.status === "SUCCESS" ? "default" : order.status === "FAILED" ? "destructive" : "secondary"} className="gap-1">
+                        <Badge variant={order.status === "SUCCESS" ? "success" : order.status === "FAILED" ? "destructive" : "secondary"} className="gap-1">
                           <StatusIcon status={order.status} />{statusLabels[order.status]}
                         </Badge>
+                      </TableCell>
+                      <TableCell className="max-w-[240px] text-xs text-slate-600">
+                        {order.status === "FAILED" ? (
+                          <span title={order.error ?? "Erro desconhecido."} className="line-clamp-2 break-words text-red-700">
+                            {order.error || "Erro desconhecido."}
+                          </span>
+                        ) : (
+                          "-"
+                        )}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
@@ -304,7 +386,7 @@ export default function OrdersPage() {
                 <thead className="bg-slate-100 text-slate-700">
                   <tr>
                     <th className="border-b border-slate-200 px-3 py-2 font-semibold">Código</th>
-                    <th className="border-b border-slate-200 px-3 py-2 font-semibold">Label</th>
+                    <th className="border-b border-slate-200 px-3 py-2 font-semibold">Insumo</th>
                     <th className="border-b border-slate-200 px-3 py-2 font-semibold">Tipo</th>
                     <th className="border-b border-slate-200 px-3 py-2 font-semibold">Ativo</th>
                   </tr>
@@ -316,7 +398,7 @@ export default function OrdersPage() {
                     </tr>
                   ) : (
                     selectedInputRows.map((input) => (
-                      <tr key={`${inputModalOrder?.id ?? "input"}-${input.id}`} className="odd:bg-white even:bg-slate-50">
+                      <tr key={`${inputModalOrder?.id ?? "input"}-${input.code}`} className="odd:bg-white even:bg-slate-50">
                         <td className="border-b border-slate-200 px-3 py-2 font-medium text-slate-900">{input.code}</td>
                         <td className="border-b border-slate-200 px-3 py-2 text-slate-700">{input.label}</td>
                         <td className="border-b border-slate-200 px-3 py-2 text-slate-600">{input.typeDocument}</td>
