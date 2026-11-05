@@ -81,12 +81,12 @@
   --card-foreground: 215 25% 20%;
   --card-border: 214 20% 90%;
 
-  --sidebar: 224 52% 29%;
+  --sidebar: var(--primary);
   --sidebar-foreground: 0 0% 98%;
-  --sidebar-border: 224 52% 20%;
+  --sidebar-border: 216 54% 8%;
   --sidebar-primary: 213 90% 60%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 224 45% 38%;
+  --sidebar-accent: 216 40% 22%;
   --sidebar-accent-foreground: 0 0% 95%;
   --sidebar-ring: 213 90% 60%;
 
@@ -94,7 +94,7 @@
   --popover-foreground: 215 25% 20%;
   --popover-border: 214 20% 88%;
 
-  --primary: 224 52% 29%;
+  --primary: 216 54% 12.7%; /* rgb(15, 29, 50) */
   --primary-foreground: 0 0% 100%;
 
   --secondary: 214 20% 93%;

@@ -70,7 +70,7 @@ export default function Header({ sidebarCollapsed, onLogout }: HeaderProps) {
             onClick={() => setMenuOpen((value) => !value)}
             className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 rounded-lg px-2 py-1 transition-colors group"
           >
-            <div className="w-9 h-9 rounded-full bg-[#243871] flex items-center justify-center text-white text-sm font-semibold">
+            <div className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-white text-sm font-semibold">
               <User size={17} />
             </div>
 

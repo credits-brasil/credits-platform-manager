@@ -14,10 +14,10 @@ import {
   ScrollText,
 } from "lucide-react";
 
-const SIDEBAR_BG = "#243871";
-const SIDEBAR_BORDER = "#1a2a56";
-const SIDEBAR_HOVER = "#2e4590";
-const SIDEBAR_SUB_HOVER = "#243070";
+const SIDEBAR_BG = "hsl(var(--sidebar))";
+const SIDEBAR_BORDER = "hsl(var(--sidebar-border))";
+const SIDEBAR_HOVER = "hsl(var(--sidebar-accent))";
+const SIDEBAR_SUB_HOVER = "hsl(var(--sidebar-accent) / 0.6)";
 const ACTIVE_ORANGE = "#ED884A";
 
 interface SubItem {
