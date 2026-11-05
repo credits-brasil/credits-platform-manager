@@ -108,8 +108,11 @@ function getOrderInputs(order: Order): OrderExportInput[] {
   }));
 }
 
-/** Colunas da tabela principal; o mesmo array alimenta o cabeçalho e a exportação. */
-const ORDER_COLUMNS: { header: string; exportValue: (order: Order) => string }[] = [
+/**
+ * Colunas da tabela principal; o mesmo array alimenta o cabeçalho e a exportação.
+ * `exportable: false` mantém a coluna na tela, mas a omite da planilha.
+ */
+const ORDER_COLUMNS: { header: string; exportValue: (order: Order) => string; exportable?: false }[] = [
   { header: "ID Empresa", exportValue: (order) => formatDocument(order.company_document, "CNPJ") },
   { header: "Empresa", exportValue: (order) => order.company_name },
   { header: "Documento", exportValue: (order) => formatDocument(order.document, order.typeDocument) },
@@ -118,13 +121,15 @@ const ORDER_COLUMNS: { header: string; exportValue: (order: Order) => string }[]
   { header: "Tipo", exportValue: () => "Produto" },
   { header: "Produto", exportValue: (order) => order.product_name },
   { header: "Protocolo", exportValue: (order) => order.protocol || "-" },
-  { header: "Duração", exportValue: (order) => `${order.duration} ms` },
-  { header: "IP", exportValue: (order) => order.ip || "-" },
-  { header: "Host", exportValue: (order) => order.host || "-" },
+  { header: "Duração", exportValue: (order) => `${order.duration} ms`, exportable: false },
+  { header: "IP", exportValue: (order) => order.ip || "-", exportable: false },
+  { header: "Host", exportValue: (order) => order.host || "-", exportable: false },
   { header: "Origem", exportValue: (order) => order.origin || "-" },
   { header: "Status", exportValue: (order) => statusLabels[order.status] },
   { header: "Erro", exportValue: (order) => (order.status === "FAILED" ? order.error || "Erro desconhecido." : "-") },
 ];
+
+const EXPORT_COLUMNS = ORDER_COLUMNS.filter((column) => column.exportable !== false);
 
 type OrdersFilters = { search: string; status: "ALL" | OrderStatus; companyFilter: string };
 type OrdersResponse = { orders: Order[]; pagination: { total: number; totalPages: number } };
@@ -210,13 +215,9 @@ export default function OrdersPage() {
       await exportOrdersToXlsx({
         sheetName: "Consultas",
         title: "Histórico de consultas",
-        columns: ORDER_COLUMNS.map((column) => column.header),
-        inputsColumn: "Detalhes",
+        columns: EXPORT_COLUMNS.map((column) => column.header),
         rows: allOrders.map((order) => ({
-          cells: ORDER_COLUMNS.map((column) => column.exportValue(order)),
-          product: order.product_name,
-          document: formatDocument(order.document, order.typeDocument),
-          protocol: order.protocol || "-",
+          cells: EXPORT_COLUMNS.map((column) => column.exportValue(order)),
           inputs: getOrderInputs(order),
         })),
         fileName: `consultas_${timestamp}.xlsx`,
