@@ -130,6 +130,23 @@ const ORDER_COLUMNS: { header: string; exportValue: (order: Order) => string; ex
 ];
 
 const EXPORT_COLUMNS = ORDER_COLUMNS.filter((column) => column.exportable !== false);
+const INPUT_EXPORT_HEADERS = ["Código Insumo", "Insumo"];
+
+/**
+ * Achata a consulta para a planilha: uma linha "Produto" (colunas de insumo vazias)
+ * seguida de uma cópia dela por insumo, com Tipo = "Insumo" e os dados do insumo.
+ * Assim dá para filtrar/somar no Excel por Tipo, Produto, Insumo etc.
+ */
+function getOrderExportRows(order: Order): string[][] {
+  const productCells = EXPORT_COLUMNS.map((column) => column.exportValue(order));
+  const typeIndex = EXPORT_COLUMNS.findIndex((column) => column.header === "Tipo");
+  const inputRows = getOrderInputs(order).map((input) => {
+    const cells = [...productCells, input.code, input.label];
+    if (typeIndex >= 0) cells[typeIndex] = "Insumo";
+    return cells;
+  });
+  return [[...productCells, "", ""], ...inputRows];
+}
 
 type OrdersFilters = { search: string; status: "ALL" | OrderStatus; companyFilter: string };
 type OrdersResponse = { orders: Order[]; pagination: { total: number; totalPages: number } };
@@ -214,12 +231,8 @@ export default function OrdersPage() {
       const timestamp = new Date().toISOString().slice(0, 16).replace("T", "_").replace(":", "-");
       await exportOrdersToXlsx({
         sheetName: "Consultas",
-        title: "Histórico de consultas",
-        columns: EXPORT_COLUMNS.map((column) => column.header),
-        rows: allOrders.map((order) => ({
-          cells: EXPORT_COLUMNS.map((column) => column.exportValue(order)),
-          inputs: getOrderInputs(order),
-        })),
+        columns: [...EXPORT_COLUMNS.map((column) => column.header), ...INPUT_EXPORT_HEADERS],
+        rows: allOrders.flatMap(getOrderExportRows),
         fileName: `consultas_${timestamp}.xlsx`,
       });
     } catch (error) {
