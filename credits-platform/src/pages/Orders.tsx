@@ -110,10 +110,9 @@ function getOrderInputs(order: Order): OrderExportInput[] {
 
 /**
  * Colunas da tabela principal; o mesmo array alimenta o cabeçalho e a exportação.
- * `exportable: false` mantém a coluna na tela, mas a omite da planilha.
  */
-const ORDER_COLUMNS: { header: string; exportValue: (order: Order) => string; exportable?: false }[] = [
-  { header: "ID Empresa", exportValue: (order) => formatDocument(order.company_document, "CNPJ") },
+const ORDER_COLUMNS: { header: string; exportValue: (order: Order) => string }[] = [
+  { header: "Razão Social", exportValue: (order) => formatDocument(order.company_document, "CNPJ") },
   { header: "Empresa", exportValue: (order) => order.company_name },
   { header: "Documento", exportValue: (order) => formatDocument(order.document, order.typeDocument) },
   { header: "Usuário", exportValue: (order) => order.user_name },
@@ -121,15 +120,11 @@ const ORDER_COLUMNS: { header: string; exportValue: (order: Order) => string; ex
   { header: "Tipo", exportValue: () => "Produto" },
   { header: "Produto", exportValue: (order) => order.product_name },
   { header: "Protocolo", exportValue: (order) => order.protocol || "-" },
-  { header: "Duração", exportValue: (order) => `${order.duration} ms`, exportable: false },
-  { header: "IP", exportValue: (order) => order.ip || "-", exportable: false },
-  { header: "Host", exportValue: (order) => order.host || "-", exportable: false },
   { header: "Origem", exportValue: (order) => order.origin || "-" },
   { header: "Status", exportValue: (order) => statusLabels[order.status] },
   { header: "Erro", exportValue: (order) => (order.status === "FAILED" ? order.error || "Erro desconhecido." : "-") },
 ];
 
-const EXPORT_COLUMNS = ORDER_COLUMNS.filter((column) => column.exportable !== false);
 const INPUT_EXPORT_HEADERS = ["Código Insumo", "Insumo"];
 
 /**
@@ -138,8 +133,8 @@ const INPUT_EXPORT_HEADERS = ["Código Insumo", "Insumo"];
  * Assim dá para filtrar/somar no Excel por Tipo, Produto, Insumo etc.
  */
 function getOrderExportRows(order: Order): string[][] {
-  const productCells = EXPORT_COLUMNS.map((column) => column.exportValue(order));
-  const typeIndex = EXPORT_COLUMNS.findIndex((column) => column.header === "Tipo");
+  const productCells = ORDER_COLUMNS.map((column) => column.exportValue(order));
+  const typeIndex = ORDER_COLUMNS.findIndex((column) => column.header === "Tipo");
   const inputRows = getOrderInputs(order).map((input) => {
     const cells = [...productCells, input.code, input.label];
     if (typeIndex >= 0) cells[typeIndex] = "Insumo";
@@ -231,7 +226,7 @@ export default function OrdersPage() {
       const timestamp = new Date().toISOString().slice(0, 16).replace("T", "_").replace(":", "-");
       await exportOrdersToXlsx({
         sheetName: "Consultas",
-        columns: [...EXPORT_COLUMNS.map((column) => column.header), ...INPUT_EXPORT_HEADERS],
+        columns: [...ORDER_COLUMNS.map((column) => column.header), ...INPUT_EXPORT_HEADERS],
         rows: allOrders.flatMap(getOrderExportRows),
         fileName: `consultas_${timestamp}.xlsx`,
       });
@@ -244,6 +239,8 @@ export default function OrdersPage() {
       setIsExporting(false);
     }
   };
+
+  console.log(orders)
 
   return (
     <div className="space-y-5">
@@ -327,9 +324,6 @@ export default function OrdersPage() {
                       <TableCell className="whitespace-nowrap text-xs text-slate-500">Produto</TableCell>
                       <TableCell className="whitespace-nowrap text-xs text-slate-500">{order.product_name}</TableCell>
                       <TableCell className="font-medium text-slate-700">{order.protocol || "-"}</TableCell>
-                      <TableCell>{order.duration} ms</TableCell>
-                      <TableCell className="whitespace-nowrap text-xs text-slate-500">{order.ip || "-"}</TableCell>
-                      <TableCell className="whitespace-nowrap text-xs text-slate-500">{order.host || "-"}</TableCell>
                       <TableCell>{order.origin || "-"}</TableCell>
                       <TableCell>
                         <Badge variant={order.status === "SUCCESS" ? "success" : order.status === "FAILED" ? "destructive" : "secondary"} className="gap-1">
@@ -357,7 +351,7 @@ export default function OrdersPage() {
                             </Button>
                           ) : null}
                           {hasSpcSnapshot(order) ? (
-                            <Button variant="ghost" size="sm" onClick={() => setSelectedOrder(order)}>
+                            <Button variant="outline" size="sm" onClick={() => setSelectedOrder(order)}>
                               Ver SPC
                             </Button>
                           ) : null}
