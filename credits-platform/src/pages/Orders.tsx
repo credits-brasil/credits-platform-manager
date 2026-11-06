@@ -112,9 +112,9 @@ function getOrderInputs(order: Order): OrderExportInput[] {
  * Colunas da tabela principal; o mesmo array alimenta o cabeçalho e a exportação.
  */
 const ORDER_COLUMNS: { header: string; exportValue: (order: Order) => string }[] = [
-  { header: "Razão Social", exportValue: (order) => formatDocument(order.company_document, "CNPJ") },
-  { header: "Empresa", exportValue: (order) => order.company_name },
-  { header: "Documento", exportValue: (order) => formatDocument(order.document, order.typeDocument) },
+  { header: "CNPJ", exportValue: (order) => formatDocument(order.company_document, "CNPJ") },
+  { header: "Razão Social", exportValue: (order) => order.company_name },
+  { header: "Documento consultado", exportValue: (order) => formatDocument(order.document, order.typeDocument) },
   { header: "Usuário", exportValue: (order) => order.user_name },
   { header: "Data", exportValue: (order) => formatDate(order.createdAt) },
   { header: "Tipo", exportValue: () => "Produto" },
