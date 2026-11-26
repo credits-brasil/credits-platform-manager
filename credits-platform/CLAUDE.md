@@ -41,7 +41,13 @@ Env (`.env`): `PORT` and `VITE_API_URL`. `BASE_PATH` is optional and sets the Vi
 - **Pages (`src/pages/*.tsx`):** large self-contained files holding the table, filters and create/edit dialogs. They use TanStack Query (`useQuery`/`useMutation` + `invalidateQueries`) against the `src/lib` functions. `Logs.tsx` fetches in a `useEffect` instead.
 - **Orders (`src/pages/Orders.tsx`, "Consultas", `/operacoes/list`):** pages through `/api/orders` (20 per page) with search, status (`PROCESS`/`SUCCESS`/`FAILED` → Processando/Sucesso/Falhou) and company filters.
   - **Columns:** they come from a single `ORDER_COLUMNS` list shared by the screen header and the export. The cells are still written by hand, so a column change has to be made in both places. Current headers: "CNPJ" (company document), "Razão Social" (company name), "Documento consultado". Duração, IP and Host were removed from both the screen and the export.
-  - **Row actions:** "Ver inputs" (insumos consulted) and "Ver SPC" (the stored SPC snapshot) both use `variant="outline"`.
+  - **"Ações" column:** icon-only outline buttons with tooltips (`OrderActionButton`):
+    - "Ver inputs" (insumos consulted)
+    - "Ver SPC" (raw XML/JSON drawer)
+    - "Ver relatório" (successful orders with a stored `result`)
+  - **"Ver relatório"** opens `components/ConsultationReportDialog.tsx`: a full-screen modal embedding credits-platform's `/visualizar-consulta` in an iframe. It sends the order over `postMessage`, using the protocol in `lib/consultationViewer.ts` (mirrored in the client repo).
+  - **Configuration:** needs `VITE_CLIENT_APP_URL`. The client must list this app's origin in its `VITE_MANAGER_ORIGINS`.
+  - **Loading and errors:** the modal shows a loader until the viewer reports `rendered`. It shows an error with a retry button on timeout (20s) or when the URL is not configured.
 - **XLSX export (`src/lib/ordersExport.ts`):** the "Exportar XLS" button (`bg-emerald-600`) loads `exceljs` lazily and exports **all** orders matching the current filters, paging the API 100 at a time.
   - **Layout (decided with the user):** a flat table built for Excel formulas. Each order gets one `Tipo = Produto` row, then **one duplicated row per insumo** with `Tipo = Insumo` and `Código Insumo` / `Insumo` filled in.
   - **Formatting:** no title row, header in row 1, autofilter, frozen header.
