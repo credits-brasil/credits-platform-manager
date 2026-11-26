@@ -1,6 +1,18 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { CheckCircle2, ChevronLeft, ChevronRight, Clock3, FileSpreadsheet, Loader2, Search, XCircle } from "lucide-react";
+import {
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Clock3,
+  FileCode2,
+  FileSpreadsheet,
+  FileText,
+  ListChecks,
+  Loader2,
+  Search,
+  XCircle,
+} from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,6 +40,9 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { ConsultationReportDialog } from "@/components/ConsultationReportDialog";
+import { hasReportData } from "@/lib/consultationViewer";
 import { refreshAdminSession } from "@/lib/auth";
 import { listCompanies } from "@/lib/company";
 import { exportOrdersToXlsx, type OrderExportInput } from "@/lib/ordersExport";
@@ -89,6 +104,27 @@ function formatDocument(value: string, type: Order["typeDocument"]) {
     return digits.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
   }
   return value;
+}
+
+function OrderActionButton({
+  label,
+  icon,
+  onClick,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button variant="outline" size="icon" className="h-8 w-8" aria-label={label} onClick={onClick}>
+          {icon}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
+  );
 }
 
 function getOrderInputs(order: Order): OrderExportInput[] {
@@ -199,6 +235,7 @@ export default function OrdersPage() {
   const [page, setPage] = useState(1);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [inputModalOrder, setInputModalOrder] = useState<Order | null>(null);
+  const [reportOrder, setReportOrder] = useState<Order | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   const { toast } = useToast();
 
@@ -310,7 +347,7 @@ export default function OrdersPage() {
                     {ORDER_COLUMNS.map((column) => (
                       <TableHead key={column.header}>{column.header}</TableHead>
                     ))}
-                    <TableHead className="text-right">Detalhes</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -342,18 +379,25 @@ export default function OrdersPage() {
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
                           {(order.inputDetails?.length || order.inputCodes?.length) ? (
-                            <Button
-                              variant="outline"
-                              size="sm"
+                            <OrderActionButton
+                              label="Ver inputs"
+                              icon={<ListChecks size={16} />}
                               onClick={() => setInputModalOrder(order)}
-                            >
-                              Ver inputs
-                            </Button>
+                            />
                           ) : null}
                           {hasSpcSnapshot(order) ? (
-                            <Button variant="outline" size="sm" onClick={() => setSelectedOrder(order)}>
-                              Ver SPC
-                            </Button>
+                            <OrderActionButton
+                              label="Ver SPC (XML / JSON)"
+                              icon={<FileCode2 size={16} />}
+                              onClick={() => setSelectedOrder(order)}
+                            />
+                          ) : null}
+                          {hasReportData(order) ? (
+                            <OrderActionButton
+                              label="Ver relatório"
+                              icon={<FileText size={16} />}
+                              onClick={() => setReportOrder(order)}
+                            />
                           ) : null}
                         </div>
                       </TableCell>
@@ -473,6 +517,21 @@ export default function OrdersPage() {
           )}
         </DrawerContent>
       </Drawer>
+
+      <ConsultationReportDialog
+        order={reportOrder}
+        description={
+          reportOrder
+            ? [
+                reportOrder.product_name,
+                `${reportOrder.typeDocument} ${formatDocument(reportOrder.document, reportOrder.typeDocument)}`,
+                reportOrder.company_name,
+                formatDate(reportOrder.createdAt),
+              ].filter(Boolean).join(" · ")
+            : undefined
+        }
+        onClose={() => setReportOrder(null)}
+      />
     </div>
   );
 }
