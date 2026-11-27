@@ -11,7 +11,7 @@ type CopyButtonProps = {
 export function CopyButton({
   value,
   title,
-  className = "text-gray-400 hover:text-[#243871] hover:cursor-pointer",
+  className = "text-gray-400 hover:text-primary hover:cursor-pointer",
   iconSize = 14,
 }: CopyButtonProps) {
   const [isCopied, setIsCopied] = useState(false);
